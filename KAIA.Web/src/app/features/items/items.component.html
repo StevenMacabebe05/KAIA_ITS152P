@@ -1,0 +1,624 @@
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title">Donation Items</h1>
+      <p class="page-header__subtitle">
+        @if (editMode()) {
+          @if (selectedCount() > 0) {
+            <strong>{{ selectedCount() }}</strong>
+            {{ selectedCount() === 1 ? 'item selected' : 'items selected' }} — tick the
+            circles to add or remove, then delete.
+          } @else {
+            Select items to delete. Click a row or its circle.
+          }
+        } @else if (selectedItem(); as sel) {
+          <span class="selection-hint">
+            <span class="selection-hint__dot" [attr.data-cat]="sel.category">{{ sel.category }}</span>
+            {{ sel.name }} — selected
+          </span>
+        } @else {
+          Browse and manage all catalog items.
+        }
+      </p>
+    </div>
+
+    <div class="action-bar">
+      @if (!editMode()) {
+        <button class="btn btn--primary" (click)="openAddModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add item
+        </button>
+
+        <button class="btn btn--outline" (click)="enterEditMode()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+          </svg>
+          Edit
+        </button>
+      }
+
+      @if (editMode()) {
+        @if (!bulkConfirm()) {
+          <button class="btn btn--danger"
+                  [disabled]="selectedCount() === 0"
+                  (click)="requestBulkDelete()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            Delete selected
+            @if (selectedCount() > 0) {
+              <span class="btn__count">{{ selectedCount() }}</span>
+            }
+          </button>
+        }
+
+        <button class="btn btn--outline" (click)="exitEditMode()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Done
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (editMode() && bulkConfirm()) {
+    <div class="bulk-confirm">
+      <div class="bulk-confirm__icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <div class="bulk-confirm__body">
+        <div class="bulk-confirm__title">
+          Delete {{ selectedCount() }} {{ selectedCount() === 1 ? 'item' : 'items' }}?
+        </div>
+        <div class="bulk-confirm__sub">
+          This permanently removes them from the catalog. This cannot be undone.
+        </div>
+      </div>
+      <div class="bulk-confirm__actions">
+        <button class="btn btn--outline btn--sm" (click)="cancelBulkDelete()" [disabled]="bulkDeleting()">
+          Cancel
+        </button>
+        <button class="btn btn--danger btn--sm" (click)="confirmBulkDelete()" [disabled]="bulkDeleting()">
+          {{ bulkDeleting() ? 'Deleting…' : 'Yes, delete' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ═══ 3-column layout ═══ -->
+  <div class="layout">
+
+    <!-- ─── LEFT: Brands sidebar ─── -->
+    <aside class="brands-sidebar">
+      <div class="brands-sidebar__head">
+        <div>
+          <h3 class="brands-sidebar__title">Brands</h3>
+          <p class="brands-sidebar__sub">{{ brandBreakdown().length }} available</p>
+        </div>
+      </div>
+
+      <!-- Search brands -->
+      <div class="brands-sidebar__search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="m21 21-3.5-3.5"/>
+        </svg>
+        <input type="text" placeholder="Search brands..."
+               [ngModel]="brandSearchQuery()"
+               (ngModelChange)="onBrandSearchInput($event)" />
+        @if (brandSearchQuery()) {
+          <button class="brands-sidebar__search-clear" (click)="clearBrandSearch()" aria-label="Clear">×</button>
+        }
+      </div>
+
+      <ul class="brand-list">
+        <!-- "All brands" only shows when not searching, or when search matches "all" -->
+        @if (!brandSearchQuery()) {
+          <li class="brand-item"
+              [class.brand-item--active]="!brandFilter()"
+              (click)="selectBrand('')">
+            <span class="brand-item__radio"></span>
+            <span class="brand-item__name">All brands</span>
+            <span class="brand-item__count">{{ catalogSummary().count }}</span>
+          </li>
+        }
+
+        @for (b of visibleBrands(); track b.brand) {
+          <li class="brand-item"
+              [class.brand-item--active]="brandFilter() === b.brand"
+              (click)="selectBrand(b.brand)">
+            <span class="brand-item__radio"></span>
+            <span class="brand-item__name">{{ b.brand }}</span>
+            <span class="brand-item__count">{{ b.count }}</span>
+          </li>
+        }
+      </ul>
+
+      <!-- No matches hint -->
+      @if (noBrandMatches()) {
+        <div class="brands-sidebar__empty">
+          No brands match "{{ brandSearchQuery() }}".
+        </div>
+      }
+
+      <!-- See-all toggle -->
+      @if (hasHiddenBrands()) {
+        <button class="brands-sidebar__more" (click)="showAllBrands.set(true)">
+          See all {{ filteredBrands().length }} brands
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+      }
+
+      @if (showAllBrands() && filteredBrands().length > 10) {
+        <button class="brands-sidebar__more brands-sidebar__more--collapse"
+                (click)="showAllBrands.set(false)">
+          Show fewer
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"/>
+          </svg>
+        </button>
+      }
+
+      @if (brandFilter()) {
+        <button class="brands-sidebar__clear" (click)="selectBrand('')">
+          Clear brand filter
+        </button>
+      }
+    </aside>
+
+    <!-- ─── CENTER: main column ─── -->
+    <div class="main-col">
+
+      <div class="card toolbar">
+        <div class="toolbar__search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7"/>
+            <path d="m21 21-3.5-3.5"/>
+          </svg>
+          <input type="text" placeholder="Search by name, code, or brand..."
+                 [ngModel]="searchQuery()" (ngModelChange)="onSearchInput($event)" />
+        </div>
+      </div>
+
+      <div class="sort-bar">
+        <span class="sort-bar__label">Sort by</span>
+
+        <button class="sort-seg"
+                [class.sort-seg--active]="isSortActive('createdAt', 'desc')"
+                (click)="setSort('createdAt', 'desc')">Newest</button>
+
+        <button class="sort-seg"
+                [class.sort-seg--active]="isSortActive('createdAt', 'asc')"
+                (click)="setSort('createdAt', 'asc')">Oldest</button>
+
+        <button class="sort-seg"
+                [class.sort-seg--active]="isSortActive('name', 'asc')"
+                (click)="setSort('name', 'asc')">Name A–Z</button>
+
+        <button class="sort-seg"
+                [class.sort-seg--active]="isSortActive('name', 'desc')"
+                (click)="setSort('name', 'desc')">Name Z–A</button>
+
+        <div class="sort-price" [class.sort-price--active]="sortBy() === 'unitPrice'">
+          <button class="sort-seg sort-seg--price" (click)="togglePriceMenu()">
+            Price
+            <span class="sort-seg__arrow">
+              @if (sortBy() === 'unitPrice' && sortDir() === 'asc') { ↑ }
+              @else if (sortBy() === 'unitPrice' && sortDir() === 'desc') { ↓ }
+              @else { ▾ }
+            </span>
+          </button>
+
+          @if (priceMenuOpen()) {
+            <div class="sort-price__menu" (click)="$event.stopPropagation()">
+              <button class="sort-price__item"
+                      [class.sort-price__item--active]="isSortActive('unitPrice', 'asc')"
+                      (click)="setSort('unitPrice', 'asc')">
+                Price: Low to High
+              </button>
+              <button class="sort-price__item"
+                      [class.sort-price__item--active]="isSortActive('unitPrice', 'desc')"
+                      (click)="setSort('unitPrice', 'desc')">
+                Price: High to Low
+              </button>
+            </div>
+          }
+        </div>
+
+        <div class="sort-bar__spacer"></div>
+
+        <div class="sort-bar__pager">
+          <span class="sort-bar__pager-info">{{ page() }}/{{ totalPages() }}</span>
+          <button class="pager-btn" [disabled]="page() === 1" (click)="prevPage()" aria-label="Previous">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <button class="pager-btn" [disabled]="page() === totalPages()" (click)="nextPage()" aria-label="Next">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      @if (hasActiveFilters()) {
+        <div class="chips">
+          @if (searchQuery()) {
+            <button class="chip" (click)="onSearchInput('')">
+              "{{ searchQuery() }}" <span class="chip__x">×</span>
+            </button>
+          }
+          @if (presetFilter() === 'high') {
+            <button class="chip chip--accent" (click)="togglePreset('high')">
+              High value ₱200+ <span class="chip__x">×</span>
+            </button>
+          }
+          @if (presetFilter() === 'budget') {
+            <button class="chip chip--accent" (click)="togglePreset('budget')">
+              Budget under ₱50 <span class="chip__x">×</span>
+            </button>
+          }
+          @if (presetFilter() === 'recent') {
+            <button class="chip chip--accent" (click)="togglePreset('recent')">
+              Recently added <span class="chip__x">×</span>
+            </button>
+          }
+          @if (categoryFilter()) {
+            <button class="chip" (click)="toggleCategoryFromSidebar(categoryFilter())">
+              {{ categoryLabel(categoryFilter()) }} <span class="chip__x">×</span>
+            </button>
+          }
+          @if (brandFilter()) {
+            <button class="chip" (click)="selectBrand('')">
+              {{ brandFilter() }} <span class="chip__x">×</span>
+            </button>
+          }
+          <button class="chip chip--clear" (click)="clearFilters()">Clear all</button>
+        </div>
+      }
+
+      <div class="card table-card">
+
+        @if (loading()) {
+          <div class="table-skeleton">
+            @for (i of [1,2,3,4,5,6,7,8]; track i) {
+              <div class="skeleton-row">
+                <div class="skeleton-cell skeleton-cell--lg"></div>
+                <div class="skeleton-cell skeleton-cell--md"></div>
+                <div class="skeleton-cell skeleton-cell--sm"></div>
+              </div>
+            }
+          </div>
+        }
+
+        @else if (error()) {
+          <div class="table-state">
+            <div class="table-state__icon table-state__icon--error">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <h3 class="table-state__title">Couldn't load items</h3>
+            <p class="table-state__body">{{ error() }}</p>
+            <button class="btn btn--primary" (click)="loadItems()">Retry</button>
+          </div>
+        }
+
+        @else if (allItems().length === 0) {
+          <div class="table-state">
+            <div class="table-state__icon table-state__icon--empty">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m7.5 4.27 9 5.15"/>
+                <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+              </svg>
+            </div>
+            <h3 class="table-state__title">No items yet</h3>
+            <p class="table-state__body">Add your first donation item to get started.</p>
+            <button class="btn btn--primary" (click)="openAddModal()">Add item</button>
+          </div>
+        }
+
+        @else if (filteredItems().length === 0) {
+          <div class="table-state">
+            <div class="table-state__icon table-state__icon--empty">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/>
+              </svg>
+            </div>
+            <h3 class="table-state__title">No matching items</h3>
+            <p class="table-state__body">Try a different search term or clear your filters.</p>
+            <button class="btn btn--outline" (click)="clearFilters()">Clear filters</button>
+          </div>
+        }
+
+        @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                @if (editMode()) {
+                  <th class="check-col">
+                    <button class="row-check row-check--head"
+                            [class.row-check--on]="isAllVisibleSelected()"
+                            (click)="toggleSelectAllVisible()"
+                            [attr.aria-label]="isAllVisibleSelected() ? 'Deselect all' : 'Select all'">
+                      @if (isAllVisibleSelected()) {
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      }
+                    </button>
+                  </th>
+                }
+                <th>Name</th>
+                <th>Code</th>
+                <th>Brand</th>
+                <th class="text-right">Unit price</th>
+                <th class="text-right"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of pagedItems(); track item.id) {
+                <tr class="data-row"
+                    [class.data-row--selected]="!editMode() && selectedItem()?.id === item.id"
+                    [class.data-row--checked]="editMode() && isSelected(item.id)"
+                    (click)="onRowClick(item)">
+                  @if (editMode()) {
+                    <td class="check-col" (click)="$event.stopPropagation(); toggleSelected(item.id)">
+                      <span class="row-check" [class.row-check--on]="isSelected(item.id)">
+                        @if (isSelected(item.id)) {
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                               stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        }
+                      </span>
+                    </td>
+                  }
+                  <td class="cell-name">
+                    <span class="cat-badge" [attr.data-cat]="item.category">{{ item.category }}</span>
+                    <span class="cell-name__text">{{ item.name }}</span>
+                  </td>
+                  <td class="cell-mono">{{ item.code }}</td>
+                  <td class="cell-muted">{{ item.brand }}</td>
+                  <td class="text-right cell-price">{{ formatCurrency(item.unitPrice) }}</td>
+                  <td class="text-right cell-actions" (click)="$event.stopPropagation()">
+                    @if (!editMode()) {
+                      <button class="icon-btn" (click)="openEditModal(item)" title="Edit" aria-label="Edit">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M12 20h9"/>
+                          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                        </svg>
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+
+          <div class="pagination">
+            <div class="pagination__info">
+              Showing {{ rangeStart() }}–{{ rangeEnd() }} of {{ totalFiltered() }} items
+            </div>
+            <div class="pagination__controls">
+              <button class="btn btn--outline btn--sm" [disabled]="page() === 1" (click)="prevPage()">Previous</button>
+              <span class="pagination__page">Page {{ page() }} of {{ totalPages() }}</span>
+              <button class="btn btn--outline btn--sm" [disabled]="page() === totalPages()" (click)="nextPage()">Next</button>
+            </div>
+          </div>
+        }
+
+      </div>
+    </div>
+
+    <!-- ─── RIGHT: Insight panel ─── -->
+    <aside class="insight">
+
+      @if (!editMode() && selectedItem(); as item) {
+        <div class="insight__head">
+          <div class="insight__title-group">
+            <span class="insight__title">Item details</span>
+            <span class="insight__title-sub">Selected from the table</span>
+          </div>
+          <button class="insight__close" (click)="clearSelection()" aria-label="Close">×</button>
+        </div>
+
+        <div class="insight-hero">
+          <div class="insight-hero__badge" [attr.data-cat]="item.category">{{ item.category }}</div>
+          <h4 class="insight-hero__name">{{ item.name }}</h4>
+          <p class="insight-hero__brand">{{ item.brand }}</p>
+        </div>
+
+        <div class="detail-list">
+          <div class="detail-row">
+            <span class="detail-row__label">Code</span>
+            <span class="detail-row__value detail-row__value--mono">{{ item.code }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row__label">Category</span>
+            <span class="detail-row__value">
+              <span class="detail-row__dot" [style.background]="categoryColor(item.category)"></span>
+              {{ categoryLabel(item.category) }}
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row__label">Unit price</span>
+            <span class="detail-row__value detail-row__value--price">{{ formatCurrency(item.unitPrice) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row__label">Added</span>
+            <span class="detail-row__value">{{ formatDate(item.createdAtUtc) }}</span>
+          </div>
+        </div>
+
+        <div class="insight__actions">
+          <button class="btn btn--primary insight__btn" (click)="openEditModal(item)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+            </svg>
+            Edit item
+          </button>
+          <button class="btn btn--outline insight__btn insight__btn--danger" (click)="openDeleteModal(item)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            Delete
+          </button>
+        </div>
+
+        <button class="insight__back" (click)="clearSelection()">← Back to insights</button>
+      }
+
+      @else {
+
+        <div class="summary-strip">
+          <div class="summary-strip__cell">
+            <div class="summary-strip__value">{{ catalogSummary().count }}</div>
+            <div class="summary-strip__label">items</div>
+          </div>
+          <div class="summary-strip__divider"></div>
+          <div class="summary-strip__cell">
+            <div class="summary-strip__value">{{ formatPesoCompact(catalogSummary().totalValue) }}</div>
+            <div class="summary-strip__label">total value</div>
+          </div>
+        </div>
+
+        <div class="insight__section">
+          <div class="insight__section-title">Quick views</div>
+          <div class="preset-stack">
+            <button class="preset"
+                    [class.preset--active]="presetFilter() === 'high'"
+                    (click)="togglePreset('high')">
+              <span class="preset__icon preset__icon--accent">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2v20"/><path d="m17 6-5-4-5 4"/>
+                </svg>
+              </span>
+              <span class="preset__label">High value</span>
+              <span class="preset__meta">₱200+</span>
+              <span class="preset__count">{{ presetCounts().high }}</span>
+            </button>
+
+            <button class="preset"
+                    [class.preset--active]="presetFilter() === 'budget'"
+                    (click)="togglePreset('budget')">
+              <span class="preset__icon preset__icon--primary">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2v20"/><path d="m7 18 5 4 5-4"/>
+                </svg>
+              </span>
+              <span class="preset__label">Budget items</span>
+              <span class="preset__meta">under ₱50</span>
+              <span class="preset__count">{{ presetCounts().budget }}</span>
+            </button>
+
+            <button class="preset"
+                    [class.preset--active]="presetFilter() === 'recent'"
+                    (click)="togglePreset('recent')">
+              <span class="preset__icon preset__icon--primary">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="9"/>
+                  <polyline points="12 7 12 12 15 14"/>
+                </svg>
+              </span>
+              <span class="preset__label">Recently added</span>
+              <span class="preset__meta">last 7 days</span>
+              <span class="preset__count">{{ presetCounts().recent }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="insight__section">
+          <div class="insight__section-title">Categories</div>
+          <ul class="cat-bars">
+            @for (c of categoryBreakdown(); track c.prefix) {
+              <li class="cat-bar"
+                  [class.cat-bar--active]="categoryFilter() === c.prefix"
+                  (click)="toggleCategoryFromSidebar(c.prefix)">
+                <div class="cat-bar__head">
+                  <span class="cat-bar__name">
+                    <span class="cat-bar__dot" [style.background]="c.color"></span>
+                    {{ c.label }}
+                  </span>
+                  <span class="cat-bar__count">{{ c.count }}</span>
+                </div>
+                <div class="cat-bar__track">
+                  <div class="cat-bar__fill"
+                       [style.width.%]="c.barWidth"
+                       [style.background]="c.color"></div>
+                </div>
+              </li>
+            }
+          </ul>
+        </div>
+
+        @if (hasActiveFilters()) {
+          <button class="insight__clear" (click)="clearFilters()">Clear all filters</button>
+        }
+      }
+
+    </aside>
+
+  </div>
+</div>
+
+@if (showFormModal()) {
+  <app-item-form-modal
+    [item]="editingItem()"
+    (closed)="onFormClosed()"
+    (saved)="onFormSaved($event)" />
+}
+
+@if (showDeleteModal()) {
+  <app-delete-confirm-modal
+    [item]="deletingItem()"
+    (closed)="closeDeleteModal()"
+    (confirmed)="onDeleteConfirmed($event)" />
+}
+
+@if (toast(); as t) {
+  <div class="toast" [class.toast--error]="t.type === 'error'" (click)="dismissToast()">
+    <span class="toast__dot"></span>
+    {{ t.message }}
+  </div>
+}

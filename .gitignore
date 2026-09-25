@@ -1,0 +1,57 @@
+# ═══════════════ .NET ═══════════════
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.dbmdl
+*.jfm
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+*.nupkg
+*.snupkg
+packages/
+!packages/build/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ═══════════════ Node / Angular ═══════════════
+node_modules/
+dist/
+dist-ssr/
+.angular/
+.cache/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ═══════════════ Environment / secrets ═══════════════
+appsettings.*.local.json
+secrets.json
+.env
+.env.*
+!.env.example
+
+# ═══════════════ IDE / editors ═══════════════
+.idea/
+*.swp
+*.swo
+*~
+
+# ═══════════════ OS ═══════════════
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ═══════════════ Project-specific ═══════════════
+Screenshots/
+*.log

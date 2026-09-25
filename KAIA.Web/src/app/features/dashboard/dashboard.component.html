@@ -1,0 +1,252 @@
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title">Dashboard</h1>
+      <p class="page-header__subtitle">Your impact, at a glance.</p>
+    </div>
+  </div>
+
+  <!-- ═══ Loading ═══ -->
+  @if (loading()) {
+    <div class="stat-grid">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="stat-card">
+          <div class="skel skel--icon"></div>
+          <div class="skel skel--lg"></div>
+          <div class="skel skel--sm"></div>
+        </div>
+      }
+    </div>
+    <div class="card chart-card">
+      <div class="skel skel--md"></div>
+      <div class="skel skel--chart"></div>
+    </div>
+    <div class="bottom-grid">
+      <div class="card panel"><div class="skel skel--chart"></div></div>
+      <div class="card panel"><div class="skel skel--chart"></div></div>
+    </div>
+  }
+
+  <!-- ═══ Error ═══ -->
+  @else if (error()) {
+    <div class="card state-card">
+      <div class="state-card__icon state-card__icon--error">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <h3 class="state-card__title">Couldn't load items</h3>
+      <p class="state-card__body">{{ error() }}</p>
+      <button class="btn btn--primary" (click)="loadItems()">Retry</button>
+    </div>
+  }
+
+  <!-- ═══ Empty ═══ -->
+  @else if (totalItems() === 0) {
+    <div class="card state-card">
+      <div class="state-card__icon state-card__icon--empty">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m7.5 4.27 9 5.15"/>
+          <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+          <path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
+        </svg>
+      </div>
+      <h3 class="state-card__title">No items yet</h3>
+      <p class="state-card__body">Add your first donation item to see statistics here.</p>
+      <a routerLink="/items" class="btn btn--primary">Go to Donation Items</a>
+    </div>
+  }
+
+  <!-- ═══ Populated ═══ -->
+  @else {
+
+    <!-- Row 1 — stat cards with staggered entrance -->
+    <div class="stat-grid">
+      <div class="stat-card anim-in" style="--delay: 0ms">
+        <div class="stat-card__icon stat-card__icon--primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m7.5 4.27 9 5.15"/>
+            <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+          </svg>
+        </div>
+        <div class="stat-card__value">{{ totalItems() }}</div>
+        <div class="stat-card__label">Total items</div>
+      </div>
+
+      <div class="stat-card anim-in" style="--delay: 60ms">
+        <div class="stat-card__icon stat-card__icon--accent">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="2" x2="12" y2="22"/>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </div>
+        <div class="stat-card__value">{{ formatPesoCompact(totalValue()) }}</div>
+        <div class="stat-card__label">Estimated value</div>
+      </div>
+
+      <div class="stat-card anim-in" style="--delay: 120ms">
+        <div class="stat-card__icon stat-card__icon--primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+          </svg>
+        </div>
+        <div class="stat-card__value">{{ categoryCount() }}</div>
+        <div class="stat-card__label">Categories</div>
+      </div>
+
+      <div class="stat-card anim-in" style="--delay: 180ms">
+        <div class="stat-card__icon stat-card__icon--accent">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 2v4"/><path d="M16 2v4"/>
+            <rect width="18" height="18" x="3" y="4" rx="2"/>
+            <path d="M3 10h18"/><path d="m9 16 2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="stat-card__value">{{ addedThisWeek() }}</div>
+        <div class="stat-card__label">Added this week</div>
+      </div>
+    </div>
+
+    <!-- Row 2 — Cumulative value area chart -->
+    <div class="card chart-card anim-in" style="--delay: 240ms">
+      <div class="chart-card__head">
+        <div>
+          <h2 class="panel__title">Catalog value growth</h2>
+          <p class="panel__subtitle">Cumulative value as items were added.</p>
+        </div>
+        <div class="chart-card__total">
+          <span class="chart-card__total-value">{{ formatCurrency(totalValue()) }}</span>
+          <span class="chart-card__total-label">current total</span>
+        </div>
+      </div>
+
+      <div class="chart-canvas">
+        <svg viewBox="0 0 900 260" preserveAspectRatio="none" class="area-chart">
+          <defs>
+            <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stop-color="#1E40AF" stop-opacity="0.22"/>
+              <stop offset="100%" stop-color="#1E40AF" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+
+          <!-- Y gridlines + labels -->
+          @for (yl of chart().yLabels; track yl.y) {
+            <line x1="48" [attr.y1]="yl.y" x2="876" [attr.y2]="yl.y"
+                  stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3 4"/>
+            <text x="42" [attr.y]="yl.y + 4" text-anchor="end" class="axis-label">{{ yl.text }}</text>
+          }
+
+          <!-- Area + line -->
+          @if (chart().hasData) {
+            <path [attr.d]="chart().areaPath" fill="url(#areaFill)" class="anim-area"/>
+            <path [attr.d]="chart().linePath" fill="none" stroke="#1E40AF" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round" class="anim-line"/>
+            <circle [attr.cx]="chart().lastPoint.x" [attr.cy]="chart().lastPoint.y"
+                    r="5" fill="#fff" stroke="#1E40AF" stroke-width="2.5" class="anim-dot"/>
+          }
+
+          <!-- X labels -->
+          @for (xl of chart().xLabels; track xl.x) {
+            <text [attr.x]="xl.x" y="252" text-anchor="middle" class="axis-label">{{ xl.text }}</text>
+          }
+        </svg>
+      </div>
+    </div>
+
+    <!-- Row 3 — Donut + Snapshot sidebar -->
+    <div class="bottom-grid">
+
+      <!-- Donut chart card -->
+      <div class="card panel anim-in" style="--delay: 300ms">
+        <div class="panel__header">
+          <div>
+            <h2 class="panel__title">Value by category</h2>
+            <p class="panel__subtitle">Share of total catalog value.</p>
+          </div>
+        </div>
+
+        <div class="donut-wrap">
+          <div class="donut-chart">
+            <svg width="200" height="200" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="36" fill="none" stroke="#F1F5F9" stroke-width="14"/>
+              @for (cat of categories(); track cat.prefix) {
+                <circle cx="50" cy="50" r="36" fill="none"
+                        [attr.stroke]="cat.color" stroke-width="14"
+                        [attr.stroke-dasharray]="cat.donutDash"
+                        [attr.stroke-dashoffset]="cat.donutOffset"
+                        transform="rotate(-90 50 50)"
+                        class="anim-arc"/>
+              }
+            </svg>
+            <div class="donut-chart__center">
+              <div class="donut-chart__center-value">{{ formatPesoCompact(totalValue()) }}</div>
+              <div class="donut-chart__center-label">total value</div>
+            </div>
+          </div>
+
+          <ul class="donut-legend">
+            @for (cat of categories(); track cat.prefix; let i = $index) {
+              <li class="donut-legend__item anim-in" [style.--delay]="(320 + i * 40) + 'ms'">
+                <span class="donut-legend__dot" [style.background]="cat.color"></span>
+                <div class="donut-legend__body">
+                  <div class="donut-legend__label">{{ cat.label }}</div>
+                  <div class="donut-legend__sub">{{ cat.count }} {{ cat.count === 1 ? 'item' : 'items' }}</div>
+                </div>
+                <div class="donut-legend__right">
+                  <div class="donut-legend__value">{{ formatPesoCompact(cat.totalValue) }}</div>
+                  <div class="donut-legend__pct">{{ formatPercent(cat.percentOfTotal) }}</div>
+                </div>
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
+
+      <!-- Snapshot sidebar -->
+      <div class="card panel snapshot anim-in" style="--delay: 360ms">
+        <div class="panel__header">
+          <div>
+            <h2 class="panel__title">Catalog snapshot</h2>
+            <p class="panel__subtitle">Top brands by value.</p>
+          </div>
+        </div>
+
+        <ul class="snapshot-list">
+          @for (b of topBrands(); track b.brand; let i = $index) {
+            <li class="snapshot-item anim-in" [style.--delay]="(400 + i * 50) + 'ms'">
+              <span class="snapshot-item__index">{{ i + 1 }}</span>
+              <div class="snapshot-item__body">
+                <div class="snapshot-item__name">{{ b.brand }}</div>
+                <div class="snapshot-item__meta">{{ b.count }} {{ b.count === 1 ? 'item' : 'items' }}</div>
+              </div>
+              <div class="snapshot-item__value">{{ formatPesoCompact(b.totalValue) }}</div>
+            </li>
+          }
+        </ul>
+
+        <a routerLink="/items" class="btn btn--accent snapshot__cta">
+          View all items
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </a>
+      </div>
+
+    </div>
+
+  }
+
+</div>

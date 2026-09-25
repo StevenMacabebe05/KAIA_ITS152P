@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="KAIA.API/KAIA.API.csproj" />
+  <Project Path="KAIA.Shared/KAIA.Shared.csproj" />
+</Solution>
