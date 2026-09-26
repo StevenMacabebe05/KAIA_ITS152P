@@ -7,9 +7,10 @@ export interface Item {
   unitPrice: number;
   createdAtUtc: string;
   category: string;
+  /** Optional — if set, shown instead of the colored tile. Ready for M3. */
+  imageUrl?: string;
 }
 
-/** Mirrors KAIA.Shared.Dtos.CreateItemDto — payload for POST /api/items */
 export interface CreateItem {
   name: string;
   code: string;
@@ -17,7 +18,6 @@ export interface CreateItem {
   unitPrice: number;
 }
 
-/** Mirrors KAIA.Shared.Dtos.UpdateItemDto — payload for PUT /api/items/{id} */
 export interface UpdateItem {
   name: string;
   code: string;

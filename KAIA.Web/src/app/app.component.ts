@@ -22,6 +22,7 @@ import { AssistantComponent } from './layout/assistant/assistant.component';
       flex-direction: column;
       min-height: 100vh;
     }
+
     .app-main {
       flex: 1 1 auto;
     }

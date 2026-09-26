@@ -1,17 +1,31 @@
 <div class="page">
 
+  <!-- ═══ Page header with Export ═══ -->
   <div class="page-header">
     <div>
       <h1 class="page-header__title">Dashboard</h1>
       <p class="page-header__subtitle">Your impact, at a glance.</p>
     </div>
+
+    <button class="btn btn--outline"
+            (click)="exportAsPng()"
+            [disabled]="exporting() || loading()"
+            title="Download this dashboard as a PNG image">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      {{ exporting() ? 'Exporting…' : 'Export PNG' }}
+    </button>
   </div>
 
   <!-- ═══ Loading ═══ -->
   @if (loading()) {
     <div class="stat-grid">
       @for (i of [1,2,3,4]; track i) {
-        <div class="stat-card">
+        <div class="stat-card stat-card--skeleton">
           <div class="skel skel--icon"></div>
           <div class="skel skel--lg"></div>
           <div class="skel skel--sm"></div>
@@ -21,10 +35,6 @@
     <div class="card chart-card">
       <div class="skel skel--md"></div>
       <div class="skel skel--chart"></div>
-    </div>
-    <div class="bottom-grid">
-      <div class="card panel"><div class="skel skel--chart"></div></div>
-      <div class="card panel"><div class="skel skel--chart"></div></div>
     </div>
   }
 
@@ -63,190 +73,403 @@
 
   <!-- ═══ Populated ═══ -->
   @else {
+    <div #dashboardRoot class="dashboard-content">
 
-    <!-- Row 1 — stat cards with staggered entrance -->
-    <div class="stat-grid">
-      <div class="stat-card anim-in" style="--delay: 0ms">
-        <div class="stat-card__icon stat-card__icon--primary">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m7.5 4.27 9 5.15"/>
-            <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
-          </svg>
-        </div>
-        <div class="stat-card__value">{{ totalItems() }}</div>
-        <div class="stat-card__label">Total items</div>
-      </div>
-
-      <div class="stat-card anim-in" style="--delay: 60ms">
-        <div class="stat-card__icon stat-card__icon--accent">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="2" x2="12" y2="22"/>
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-          </svg>
-        </div>
-        <div class="stat-card__value">{{ formatPesoCompact(totalValue()) }}</div>
-        <div class="stat-card__label">Estimated value</div>
-      </div>
-
-      <div class="stat-card anim-in" style="--delay: 120ms">
-        <div class="stat-card__icon stat-card__icon--primary">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1"/>
-            <rect x="14" y="3" width="7" height="7" rx="1"/>
-            <rect x="14" y="14" width="7" height="7" rx="1"/>
-            <rect x="3" y="14" width="7" height="7" rx="1"/>
-          </svg>
-        </div>
-        <div class="stat-card__value">{{ categoryCount() }}</div>
-        <div class="stat-card__label">Categories</div>
-      </div>
-
-      <div class="stat-card anim-in" style="--delay: 180ms">
-        <div class="stat-card__icon stat-card__icon--accent">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 2v4"/><path d="M16 2v4"/>
-            <rect width="18" height="18" x="3" y="4" rx="2"/>
-            <path d="M3 10h18"/><path d="m9 16 2 2 4-4"/>
-          </svg>
-        </div>
-        <div class="stat-card__value">{{ addedThisWeek() }}</div>
-        <div class="stat-card__label">Added this week</div>
-      </div>
-    </div>
-
-    <!-- Row 2 — Cumulative value area chart -->
-    <div class="card chart-card anim-in" style="--delay: 240ms">
-      <div class="chart-card__head">
-        <div>
-          <h2 class="panel__title">Catalog value growth</h2>
-          <p class="panel__subtitle">Cumulative value as items were added.</p>
-        </div>
-        <div class="chart-card__total">
-          <span class="chart-card__total-value">{{ formatCurrency(totalValue()) }}</span>
-          <span class="chart-card__total-label">current total</span>
-        </div>
-      </div>
-
-      <div class="chart-canvas">
-        <svg viewBox="0 0 900 260" preserveAspectRatio="none" class="area-chart">
-          <defs>
-            <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stop-color="#1E40AF" stop-opacity="0.22"/>
-              <stop offset="100%" stop-color="#1E40AF" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-
-          <!-- Y gridlines + labels -->
-          @for (yl of chart().yLabels; track yl.y) {
-            <line x1="48" [attr.y1]="yl.y" x2="876" [attr.y2]="yl.y"
-                  stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3 4"/>
-            <text x="42" [attr.y]="yl.y + 4" text-anchor="end" class="axis-label">{{ yl.text }}</text>
+      <!-- ═══ 1. Hero carousel ═══ -->
+      <section class="hero anim-in">
+        <div class="hero__slides">
+          @for (slide of heroSlides; track slide.image; let i = $index) {
+            <div class="hero__slide"
+                 [class.hero__slide--active]="heroIndex() === i"
+                 [style.background-image]="'url(' + slide.image + ')'"
+                 [attr.aria-label]="slide.alt"></div>
           }
+        </div>
 
-          <!-- Area + line -->
-          @if (chart().hasData) {
-            <path [attr.d]="chart().areaPath" fill="url(#areaFill)" class="anim-area"/>
-            <path [attr.d]="chart().linePath" fill="none" stroke="#1E40AF" stroke-width="2.5"
-                  stroke-linecap="round" stroke-linejoin="round" class="anim-line"/>
-            <circle [attr.cx]="chart().lastPoint.x" [attr.cy]="chart().lastPoint.y"
-                    r="5" fill="#fff" stroke="#1E40AF" stroke-width="2.5" class="anim-dot"/>
-          }
+        <div class="hero__overlay" aria-hidden="true"></div>
 
-          <!-- X labels -->
-          @for (xl of chart().xLabels; track xl.x) {
-            <text [attr.x]="xl.x" y="252" text-anchor="middle" class="axis-label">{{ xl.text }}</text>
-          }
-        </svg>
-      </div>
-    </div>
-
-    <!-- Row 3 — Donut + Snapshot sidebar -->
-    <div class="bottom-grid">
-
-      <!-- Donut chart card -->
-      <div class="card panel anim-in" style="--delay: 300ms">
-        <div class="panel__header">
-          <div>
-            <h2 class="panel__title">Value by category</h2>
-            <p class="panel__subtitle">Share of total catalog value.</p>
+        <div class="hero__content">
+          <div class="hero__eyebrow">
+            <span class="hero__eyebrow-dot"></span>
+            KAIA · For Causes That Matter
           </div>
-        </div>
+          <h2 class="hero__title">Your catalog is making a difference.</h2>
+          <p class="hero__subtitle">
+            Every item logged brings a cause one step closer to being fulfilled.
+          </p>
 
-        <div class="donut-wrap">
-          <div class="donut-chart">
-            <svg width="200" height="200" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="36" fill="none" stroke="#F1F5F9" stroke-width="14"/>
-              @for (cat of categories(); track cat.prefix) {
-                <circle cx="50" cy="50" r="36" fill="none"
-                        [attr.stroke]="cat.color" stroke-width="14"
-                        [attr.stroke-dasharray]="cat.donutDash"
-                        [attr.stroke-dashoffset]="cat.donutOffset"
-                        transform="rotate(-90 50 50)"
-                        class="anim-arc"/>
-              }
-            </svg>
-            <div class="donut-chart__center">
-              <div class="donut-chart__center-value">{{ formatPesoCompact(totalValue()) }}</div>
-              <div class="donut-chart__center-label">total value</div>
+          <div class="hero__metrics">
+            <div class="hero__metric">
+              <div class="hero__metric-value" [appCountUp]="totalItems()"></div>
+              <div class="hero__metric-label">items cataloged</div>
+            </div>
+            <div class="hero__divider"></div>
+            <div class="hero__metric">
+              <div class="hero__metric-value"
+                   [appCountUp]="totalValue()"
+                   countPrefix="₱"></div>
+              <div class="hero__metric-label">total value</div>
+            </div>
+            <div class="hero__divider"></div>
+            <div class="hero__metric">
+              <div class="hero__metric-value" [appCountUp]="brandCount()"></div>
+              <div class="hero__metric-label">brands sourced</div>
             </div>
           </div>
 
-          <ul class="donut-legend">
-            @for (cat of categories(); track cat.prefix; let i = $index) {
-              <li class="donut-legend__item anim-in" [style.--delay]="(320 + i * 40) + 'ms'">
-                <span class="donut-legend__dot" [style.background]="cat.color"></span>
-                <div class="donut-legend__body">
-                  <div class="donut-legend__label">{{ cat.label }}</div>
-                  <div class="donut-legend__sub">{{ cat.count }} {{ cat.count === 1 ? 'item' : 'items' }}</div>
-                </div>
-                <div class="donut-legend__right">
-                  <div class="donut-legend__value">{{ formatPesoCompact(cat.totalValue) }}</div>
-                  <div class="donut-legend__pct">{{ formatPercent(cat.percentOfTotal) }}</div>
-                </div>
-              </li>
-            }
-          </ul>
-        </div>
-      </div>
-
-      <!-- Snapshot sidebar -->
-      <div class="card panel snapshot anim-in" style="--delay: 360ms">
-        <div class="panel__header">
-          <div>
-            <h2 class="panel__title">Catalog snapshot</h2>
-            <p class="panel__subtitle">Top brands by value.</p>
+          <div class="hero__footer">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            Last updated {{ lastUpdated() }}
           </div>
         </div>
 
-        <ul class="snapshot-list">
-          @for (b of topBrands(); track b.brand; let i = $index) {
-            <li class="snapshot-item anim-in" [style.--delay]="(400 + i * 50) + 'ms'">
-              <span class="snapshot-item__index">{{ i + 1 }}</span>
-              <div class="snapshot-item__body">
-                <div class="snapshot-item__name">{{ b.brand }}</div>
-                <div class="snapshot-item__meta">{{ b.count }} {{ b.count === 1 ? 'item' : 'items' }}</div>
+        <div class="hero__dots" role="tablist" aria-label="Hero slides">
+          @for (slide of heroSlides; track slide.image; let i = $index) {
+            <button class="hero__dot"
+                    [class.hero__dot--active]="heroIndex() === i"
+                    (click)="setHeroSlide(i)"
+                    [attr.aria-label]="'Show slide ' + (i + 1)"
+                    [attr.aria-selected]="heroIndex() === i"
+                    role="tab"></button>
+          }
+        </div>
+      </section>
+
+      <!-- ═══ 2. Stat cards with trends ═══ -->
+      <div class="stat-grid">
+        <div class="stat-card anim-in" style="--delay: 60ms">
+          <div class="stat-card__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m7.5 4.27 9 5.15"/>
+              <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+            </svg>
+          </div>
+          <div class="stat-card__value" [appCountUp]="totalItems()"></div>
+          <div class="stat-card__label">Donation items</div>
+          <div class="stat-card__trend" [class]="'stat-card__trend--' + itemsTrend().direction">
+            <span class="stat-card__trend-pill">{{ trendLabel(itemsTrend()) }}</span>
+            <span class="stat-card__trend-sub">vs prev 30d</span>
+          </div>
+        </div>
+
+        <div class="stat-card anim-in" style="--delay: 120ms">
+          <div class="stat-card__icon stat-card__icon--accent">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="2" x2="12" y2="22"/>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div class="stat-card__value"
+               [appCountUp]="totalValue()"
+               countPrefix="₱"></div>
+          <div class="stat-card__label">Estimated value</div>
+          <div class="stat-card__trend" [class]="'stat-card__trend--' + valueTrend().direction">
+            <span class="stat-card__trend-pill">{{ trendLabel(valueTrend()) }}</span>
+            <span class="stat-card__trend-sub">vs prev 30d</span>
+          </div>
+        </div>
+
+        <div class="stat-card anim-in" style="--delay: 180ms">
+          <div class="stat-card__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+            </svg>
+          </div>
+          <div class="stat-card__value" [appCountUp]="categoryCount()"></div>
+          <div class="stat-card__label">Categories</div>
+          <div class="stat-card__trend" [class]="'stat-card__trend--' + categoriesTrend().direction">
+            <span class="stat-card__trend-pill">{{ trendLabel(categoriesTrend()) }}</span>
+            <span class="stat-card__trend-sub">vs prev 30d</span>
+          </div>
+        </div>
+
+        <div class="stat-card anim-in" style="--delay: 240ms">
+          <div class="stat-card__icon stat-card__icon--accent">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 2v4"/><path d="M16 2v4"/>
+              <rect width="18" height="18" x="3" y="4" rx="2"/>
+              <path d="M3 10h18"/><path d="m9 16 2 2 4-4"/>
+            </svg>
+          </div>
+          <div class="stat-card__value" [appCountUp]="addedThisWeek()"></div>
+          <div class="stat-card__label">New this week</div>
+          <div class="stat-card__trend" [class]="'stat-card__trend--' + weekTrend().direction">
+            <span class="stat-card__trend-pill">{{ trendLabel(weekTrend()) }}</span>
+            <span class="stat-card__trend-sub">vs prev week</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ 3. Cumulative area chart ═══ -->
+      <div class="card chart-card anim-in" style="--delay: 300ms">
+        <div class="chart-card__head">
+          <div>
+            <h2 class="panel__title">Catalog value growth</h2>
+            <p class="panel__subtitle">Cumulative value as items were added.</p>
+          </div>
+          <div class="chart-card__total">
+            <span class="chart-card__total-value"
+                  [appCountUp]="totalValue()"
+                  countPrefix="₱"
+                  [countDecimals]="2"></span>
+            <span class="chart-card__total-label">current total</span>
+          </div>
+        </div>
+
+        <div class="chart-canvas">
+          <svg viewBox="0 0 900 260" preserveAspectRatio="none" class="area-chart">
+            <defs>
+              <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stop-color="#1E40AF" stop-opacity="0.22"/>
+                <stop offset="100%" stop-color="#1E40AF" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+
+            @for (yl of chart().yLabels; track yl.y) {
+              <line x1="48" [attr.y1]="yl.y" x2="876" [attr.y2]="yl.y"
+                    stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3 4"/>
+              <text x="42" [attr.y]="yl.y + 4" text-anchor="end" class="axis-label">{{ yl.text }}</text>
+            }
+
+            @if (chart().hasData) {
+              <path [attr.d]="chart().areaPath" fill="url(#areaFill)" class="anim-area"/>
+              <path [attr.d]="chart().linePath" fill="none" stroke="#1E40AF" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" class="anim-line"/>
+              <circle [attr.cx]="chart().lastPoint.x" [attr.cy]="chart().lastPoint.y"
+                      r="5" fill="#fff" stroke="#1E40AF" stroke-width="2.5" class="anim-dot"/>
+            }
+
+            @for (xl of chart().xLabels; track xl.x) {
+              <text [attr.x]="xl.x" y="252" text-anchor="middle" class="axis-label">{{ xl.text }}</text>
+            }
+          </svg>
+        </div>
+      </div>
+
+      <!-- ═══ 4. Weekly bar chart ═══ -->
+      <div class="card weekly-card anim-in" style="--delay: 340ms">
+        <div class="panel__header">
+          <div>
+            <h2 class="panel__title">Items added per week</h2>
+            <p class="panel__subtitle">Additions across the last 8 weeks.</p>
+          </div>
+        </div>
+
+        <div class="weekly-chart">
+          @for (w of weeklyBuckets(); track w.weekStartMs) {
+            <div class="weekly-bar">
+              <div class="weekly-bar__count">{{ w.count }}</div>
+              <div class="weekly-bar__track">
+                <div class="weekly-bar__fill"
+                     [style.height.%]="w.percentOfMax < 4 ? 4 : w.percentOfMax"></div>
               </div>
-              <div class="snapshot-item__value">{{ formatPesoCompact(b.totalValue) }}</div>
+              <div class="weekly-bar__label">{{ w.label }}</div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- ═══ 5. Donut + Snapshot ═══ -->
+      <div class="bottom-grid">
+
+        <div class="card panel anim-in" style="--delay: 380ms">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">Value by category</h2>
+              <p class="panel__subtitle">Share of total value · sparklines show 8-week trend.</p>
+            </div>
+          </div>
+
+          <div class="donut-wrap">
+            <div class="donut-chart">
+              <svg width="200" height="200" viewBox="0 0 100 100">
+                <defs>
+                  @for (cat of categories(); track cat.prefix) {
+                    <linearGradient
+                      [attr.id]="'donutGrad-' + cat.prefix"
+                      x1="0" y1="0" x2="100" y2="100"
+                      gradientUnits="userSpaceOnUse">
+                      <stop offset="0%"   [attr.stop-color]="cat.color"/>
+                      <stop offset="100%" [attr.stop-color]="cat.colorDark"/>
+                    </linearGradient>
+                  }
+                </defs>
+
+                <circle cx="50" cy="50" r="36" fill="none" stroke="#F1F5F9" stroke-width="14"/>
+
+                @for (cat of categories(); track cat.prefix) {
+                  <circle cx="50" cy="50" r="36" fill="none"
+                          [attr.stroke]="'url(#donutGrad-' + cat.prefix + ')'"
+                          stroke-width="14"
+                          [attr.stroke-dasharray]="cat.donutDash"
+                          [attr.stroke-dashoffset]="cat.donutOffset"
+                          transform="rotate(-90 50 50)"
+                          class="anim-arc"/>
+                }
+              </svg>
+              <div class="donut-chart__center">
+                <div class="donut-chart__center-value"
+                     [appCountUp]="totalValue()"
+                     countPrefix="₱"></div>
+                <div class="donut-chart__center-label">total value</div>
+              </div>
+            </div>
+
+            <ul class="donut-legend">
+              @for (cat of categories(); track cat.prefix) {
+                <li class="donut-legend__item">
+                  <span class="donut-legend__dot" [style.background]="cat.color"></span>
+
+                  <div class="donut-legend__body">
+                    <div class="donut-legend__label">{{ cat.label }}</div>
+                    <div class="donut-legend__sub">
+                      {{ cat.count }} {{ cat.count === 1 ? 'item' : 'items' }}
+                    </div>
+                  </div>
+
+                  @if (getSparkline(cat.prefix); as spark) {
+                    <svg class="donut-legend__spark"
+                         viewBox="0 0 100 28"
+                         preserveAspectRatio="none">
+                      <path [attr.d]="spark.path"
+                            fill="none"
+                            [attr.stroke]="cat.color"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"/>
+                    </svg>
+                  }
+
+                  <div class="donut-legend__right">
+                    <div class="donut-legend__value">{{ formatPesoCompact(cat.totalValue) }}</div>
+                    <div class="donut-legend__pct">{{ formatPercent(cat.percentOfTotal) }}</div>
+                  </div>
+                </li>
+              }
+            </ul>
+          </div>
+        </div>
+
+        <div class="card panel snapshot anim-in" style="--delay: 420ms">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">Catalog snapshot</h2>
+              <p class="panel__subtitle">Top brands by value.</p>
+            </div>
+          </div>
+
+          <ul class="snapshot-list">
+            @for (b of topBrands(); track b.brand; let i = $index) {
+              <li class="snapshot-item">
+                <span class="snapshot-item__index">{{ i + 1 }}</span>
+                <div class="snapshot-item__body">
+                  <div class="snapshot-item__name">{{ b.brand }}</div>
+                  <div class="snapshot-item__meta">{{ b.count }} {{ b.count === 1 ? 'item' : 'items' }}</div>
+                </div>
+                <div class="snapshot-item__value">{{ formatPesoCompact(b.totalValue) }}</div>
+              </li>
+            }
+          </ul>
+
+          <a routerLink="/items" class="btn btn--accent snapshot__cta">
+            View all items
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- ═══ 6. Top items by value ═══ -->
+      <div class="card panel anim-in" style="--delay: 460ms">
+        <div class="panel__header">
+          <div>
+            <h2 class="panel__title">Highest-value items</h2>
+            <p class="panel__subtitle">Top 5 items by unit price.</p>
+          </div>
+        </div>
+
+        <ul class="top-list">
+          @for (item of topItems(); track item.id; let i = $index) {
+            <li class="top-item">
+              <span class="top-item__rank">{{ i + 1 }}</span>
+              <span class="top-item__badge" [attr.data-cat]="item.category">{{ item.category }}</span>
+              <div class="top-item__body">
+                <div class="top-item__name">{{ item.name }}</div>
+                <div class="top-item__meta">{{ item.brand }} · {{ item.code }}</div>
+              </div>
+              <div class="top-item__price">{{ formatCurrency(item.unitPrice) }}</div>
             </li>
           }
         </ul>
-
-        <a routerLink="/items" class="btn btn--accent snapshot__cta">
-          View all items
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="5" y1="12" x2="19" y2="12"/>
-            <polyline points="12 5 19 12 12 19"/>
-          </svg>
-        </a>
       </div>
 
-    </div>
+      <!-- ═══ 7. Impact strip ═══ -->
+      <section class="impact-strip anim-in" style="--delay: 500ms">
+        <div class="impact-strip__head">
+          <div class="impact-strip__eyebrow">What this catalog could do</div>
+          <div class="impact-strip__subtitle">
+            Illustrative estimates — the real impact lands when these items reach communities.
+          </div>
+        </div>
 
+        <div class="impact-strip__grid">
+          @for (imp of impactStrip(); track imp.headline) {
+            <div class="impact">
+              <div class="impact__icon">
+                @switch (imp.icon) {
+                  @case ('heart') {
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                    </svg>
+                  }
+                  @case ('utensils') {
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/>
+                      <path d="M7 2v20"/>
+                      <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+                    </svg>
+                  }
+                  @case ('shield') {
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                  }
+                  @case ('book') {
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                    </svg>
+                  }
+                }
+              </div>
+              <div class="impact__body">
+                <div class="impact__headline">{{ imp.headline }}</div>
+                <div class="impact__sub">{{ imp.sub }}</div>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+
+    </div>
   }
 
 </div>

@@ -143,49 +143,38 @@ import { Item } from '../../core/models/item.model';
   styles: [`
     .overlay {
       position: fixed; inset: 0;
-      background: rgba(15, 23, 42, 0.45);
+      background: rgba(15, 23, 42, 0.55);
       display: flex; align-items: center; justify-content: center;
       z-index: 60; padding: 24px;
       animation: fade-in .15s ease;
     }
     .modal {
-      width: 100%; max-width: 520px;
-      background: #fff; border-radius: var(--radius-lg);
+      width: 100%; max-width: 420px;
+      background: var(--color-surface);
+      color: var(--color-text);
+      border-radius: var(--radius-lg);
       box-shadow: var(--shadow-lg);
-      display: flex; flex-direction: column;
+      padding: 24px; text-align: center;
       animation: pop-in .18s ease;
     }
-    .modal__header {
-      display: flex; align-items: flex-start; justify-content: space-between;
-      padding: 20px 24px; border-bottom: 1px solid var(--color-border);
+    .modal__icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 52px; height: 52px; margin-bottom: 14px;
+      background: var(--color-danger-bg); color: var(--color-danger);
+      border-radius: 50%;
     }
-    .modal__title { font-size: 18px; font-weight: 600; }
-    .modal__subtitle { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
-    .modal__close {
-      width: 32px; height: 32px; border-radius: var(--radius);
-      background: transparent; border: none;
-      font-size: 22px; line-height: 1;
-      color: var(--color-text-muted);
+    .modal__title { font-size: 17px; font-weight: 600; color: var(--color-text); margin-bottom: 8px; }
+    .modal__body {
+      font-size: 13px; color: var(--color-text-secondary);
+      line-height: 1.55; margin-bottom: 20px;
     }
-    .modal__close:hover { background: #F1F5F9; color: var(--color-text); }
-    .modal__body { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
-    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .field__input--error { border-color: var(--color-danger) !important; }
-    .modal__server-error {
-      padding: 10px 12px; background: var(--color-danger-bg);
-      color: var(--color-danger); font-size: 13px;
-      border-radius: var(--radius); border: 1px solid #FECACA;
-    }
+    .modal__body strong { color: var(--color-text); }
     .modal__footer {
-      display: flex; justify-content: flex-end; gap: 8px;
-      padding-top: 8px; border-top: 1px solid var(--color-border);
-      margin-top: 8px;
+      display: flex; justify-content: center; gap: 8px;
+      padding-top: 16px; border-top: 1px solid var(--color-border);
     }
     @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes pop-in {
-      from { opacity: 0; transform: translateY(8px) scale(.98); }
-      to   { opacity: 1; transform: none; }
-    }
+    @keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
   `]
 })
 export class ItemFormModalComponent implements OnInit {
