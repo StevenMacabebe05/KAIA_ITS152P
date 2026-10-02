@@ -1,0 +1,271 @@
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title">Distributions</h1>
+      <p class="page-header__subtitle">
+        Items given out from the warehouse to recipients.
+      </p>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn--primary" (click)="openAddModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Record distribution
+      </button>
+    </div>
+  </div>
+
+  <div class="stat-strip">
+    <div class="stat-item">
+      <div class="stat-item__value">{{ stats().count }}</div>
+      <div class="stat-item__label">Distributions</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-item__value stat-item__value--accent">{{ stats().totalItems }}</div>
+      <div class="stat-item__label">Items distributed</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-item__value stat-item__value--primary">{{ stats().uniqueRecipients }}</div>
+      <div class="stat-item__label">Unique recipients</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-item__value">{{ stats().avgItems.toFixed(1) }}</div>
+      <div class="stat-item__label">Avg items / distribution</div>
+    </div>
+  </div>
+
+  <div class="card toolbar">
+    <div class="toolbar__search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/>
+      </svg>
+      <input type="text" placeholder="Search by recipient, cause, NGO, or item..."
+             [ngModel]="searchQuery()" (ngModelChange)="onSearchInput($event)" />
+    </div>
+
+    <select class="toolbar__select"
+            [ngModel]="causeFilter()"
+            (ngModelChange)="onCauseChange(+$event)">
+      <option [ngValue]="0">All causes</option>
+      @for (c of causes(); track c.id) {
+        <option [ngValue]="c.id">{{ c.title }}</option>
+      }
+    </select>
+  </div>
+
+  @if (hasActiveFilters()) {
+    <div class="chips">
+      @if (searchQuery()) {
+        <button class="chip" (click)="onSearchInput('')">
+          "{{ searchQuery() }}" <span class="chip__x">×</span>
+        </button>
+      }
+      @if (causeFilter() > 0) {
+        <button class="chip chip--accent" (click)="onCauseChange(0)">
+          {{ causes().find(c => c.id === causeFilter())?.title || 'Cause' }}
+          <span class="chip__x">×</span>
+        </button>
+      }
+      <button class="chip chip--clear" (click)="clearFilters()">Clear all</button>
+    </div>
+  }
+
+  <div class="card distributions-list">
+
+    @if (loading()) {
+      <div class="distributions-skeleton">
+        @for (i of [1,2,3,4]; track i) {
+          <div class="distribution-skel">
+            <div class="skel skel--lg"></div>
+            <div class="skel skel--md"></div>
+            <div class="skel skel--sm"></div>
+          </div>
+        }
+      </div>
+    }
+
+    @else if (error()) {
+      <div class="table-state">
+        <div class="table-state__icon table-state__icon--error">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <h3 class="table-state__title">Couldn't load distributions</h3>
+        <p class="table-state__body">{{ error() }}</p>
+        <button class="btn btn--primary" (click)="loadDistributions()">Retry</button>
+      </div>
+    }
+
+    @else if (allDistributions().length === 0) {
+      <div class="table-state">
+        <div class="table-state__icon table-state__icon--empty">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/>
+            <path d="m7.5 4.27 9 5.15"/>
+            <polyline points="3.29 7 12 12 20.71 7"/>
+            <line x1="12" y1="22" x2="12" y2="12"/>
+            <circle cx="18.5" cy="15.5" r="2.5"/>
+            <path d="M20.27 17.27 22 19"/>
+          </svg>
+        </div>
+        <h3 class="table-state__title">No distributions yet</h3>
+        <p class="table-state__body">Record your first distribution to get started.</p>
+        <button class="btn btn--primary" (click)="openAddModal()">Record distribution</button>
+      </div>
+    }
+
+    @else if (filteredDistributions().length === 0) {
+      <div class="table-state">
+        <div class="table-state__icon table-state__icon--empty">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/>
+          </svg>
+        </div>
+        <h3 class="table-state__title">No matching distributions</h3>
+        <p class="table-state__body">Try a different search term or clear your filters.</p>
+        <button class="btn btn--outline" (click)="clearFilters()">Clear filters</button>
+      </div>
+    }
+
+    @else {
+      <div class="distributions">
+        @for (dist of filteredDistributions(); track dist.id) {
+          <article class="distribution" [class.distribution--expanded]="expandedId() === dist.id">
+
+            <div class="distribution__row" (click)="toggleExpand(dist.id)">
+              <div class="distribution__cell distribution__cell--recipient">
+                <div class="distribution__label">Recipient</div>
+                <div class="distribution__value">{{ dist.recipient }}</div>
+              </div>
+
+              <div class="distribution__cell distribution__cell--cause">
+                <div class="distribution__label">Cause</div>
+                <div class="distribution__value">{{ dist.causeTitle }}</div>
+                <div class="distribution__sub">{{ dist.ngoName }}</div>
+              </div>
+
+              <div class="distribution__cell distribution__cell--items">
+                <div class="distribution__label">Items</div>
+                <div class="distribution__value">{{ totalItemsIn(dist) }}</div>
+              </div>
+
+              <div class="distribution__cell distribution__cell--date">
+                <div class="distribution__label">Date</div>
+                <div class="distribution__value">{{ formatDate(dist.distributedAtUtc) }}</div>
+              </div>
+
+              <div class="distribution__cell distribution__cell--actions"
+                   (click)="$event.stopPropagation()">
+                <button class="icon-btn" (click)="openEditModal(dist, $event)" title="Edit">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                  </svg>
+                </button>
+                <button class="icon-btn icon-btn--danger" (click)="openDeleteModal(dist, $event)" title="Delete">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                </button>
+                <div class="chev" [class.chev--open]="expandedId() === dist.id">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            @if (expandedId() === dist.id) {
+              <div class="distribution__details">
+                @if (dist.notes) {
+                  <div class="distribution__notes">
+                    <span class="distribution__notes-label">Notes:</span>
+                    {{ dist.notes }}
+                  </div>
+                }
+
+                <table class="lines-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Code</th>
+                      <th class="text-right">Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (line of dist.lines; track line.id) {
+                      <tr>
+                        <td class="cell-name">{{ line.itemName }}</td>
+                        <td class="cell-mono">{{ line.itemCode }}</td>
+                        <td class="text-right cell-qty">{{ line.quantity }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+
+          </article>
+        }
+      </div>
+
+      <div class="distributions-footer">
+        Showing {{ filteredDistributions().length }} of {{ allDistributions().length }} distributions
+      </div>
+    }
+
+  </div>
+
+</div>
+
+@if (showFormModal()) {
+  <app-distribution-form-modal
+    [distribution]="editingDistribution()"
+    (closed)="onFormClosed()"
+    (saved)="onFormSaved($event)" />
+}
+
+@if (showDeleteModal()) {
+  <app-distribution-delete-confirm-modal
+    [distribution]="deletingDistribution()"
+    (closed)="closeDeleteModal()"
+    (confirmed)="onDeleteConfirmed($event)" />
+}
+
+@for (t of toastList(); track t.id) {
+  <div class="toast" [class.toast--error]="t.type === 'error'" (click)="dismissToast()">
+    <span class="toast__icon">
+      @if (t.type === 'success') {
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      } @else {
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      }
+    </span>
+    <span class="toast__message">{{ t.message }}</span>
+    <button class="toast__close" (click)="dismissToast(); $event.stopPropagation()" aria-label="Dismiss">×</button>
+    <span class="toast__progress" [style.animation-duration.ms]="t.duration"></span>
+  </div>
+}

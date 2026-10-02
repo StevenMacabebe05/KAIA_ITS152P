@@ -3,7 +3,7 @@
   <!-- ═══ Page header ═══ -->
   <div class="page-header">
     <div>
-      <h1 class="page-header__title">Donation Items</h1>
+      <h1 class="page-header__title">Inventory</h1>
       <p class="page-header__subtitle">
         @if (editMode()) {
           @if (selectedCount() > 0) {
@@ -258,18 +258,6 @@
             </div>
           }
 
-          <!-- Density (table only) -->
-          @if (viewMode() === 'table') {
-            <div class="density-group" role="group" aria-label="Row density">
-              <button class="density-btn" [class.density-btn--active]="density() === 'compact'"
-                      (click)="setDensity('compact')" title="Compact">S</button>
-              <button class="density-btn" [class.density-btn--active]="density() === 'comfortable'"
-                      (click)="setDensity('comfortable')" title="Comfortable">M</button>
-              <button class="density-btn" [class.density-btn--active]="density() === 'spacious'"
-                      (click)="setDensity('spacious')" title="Spacious">L</button>
-            </div>
-          }
-
           <!-- View toggle -->
           <div class="view-toggle" role="group" aria-label="View mode">
             <button class="view-toggle__btn"
@@ -458,7 +446,8 @@
               <button class="btn btn--outline" (click)="clearFilters()">Clear filters</button>
             </div>
           } @else {
-            <table class="data-table" [class]="'data-table--' + density()">
+            <table class="data-table"
+                   [class.data-table--has-check]="editMode()">
               <thead>
                 <tr>
                   @if (editMode()) {
@@ -476,11 +465,12 @@
                     </th>
                   }
                   <th class="fav-col"></th>
-                  @if (isColumnVisible('name'))  { <th>Name</th> }
-                  @if (isColumnVisible('code'))  { <th>Code</th> }
-                  @if (isColumnVisible('brand')) { <th>Brand</th> }
-                  @if (isColumnVisible('price')) { <th class="text-right">Unit price</th> }
-                  <th class="text-right"></th>
+                @if (isColumnVisible('name'))  { <th>Name</th> }
+                @if (isColumnVisible('code'))  { <th>Code</th> }
+                @if (isColumnVisible('brand')) { <th>Brand</th> }
+                @if (isColumnVisible('price')) { <th class="text-right">Unit price</th> }
+                <th class="text-right">Stock</th>
+                <th class="text-right"></th>
                 </tr>
               </thead>
               <tbody>
@@ -559,6 +549,9 @@
                           </svg>
                         </button>
                       }
+                    </td>
+                                        <td class="text-right cell-stock" [class.cell-stock--zero]="stockFor(item.id) === 0">
+                      {{ stockFor(item.id) }}
                     </td>
                   </tr>
                 }
@@ -698,10 +691,11 @@
             <span class="detail-row__label">Added</span>
             <span class="detail-row__value">{{ formatDate(item.createdAtUtc) }}</span>
           </div>
-                  <div class="insight-qr">
+        </div>
+
+        <div class="insight-qr">
           <app-qr-code [value]="'http://localhost:5217/api/items/' + item.id" [size]="140"></app-qr-code>
           <div class="insight-qr__label">Scan to view API record</div>
-        </div>
         </div>
 
         <div class="insight__actions">
@@ -801,6 +795,22 @@
           </ul>
         </div>
 
+        <!-- Footer stats -->
+        <div class="insight__footer">
+          <div class="insight__footer-row">
+            <span class="insight__footer-label">Brands</span>
+            <span class="insight__footer-value">{{ brandBreakdown().length }}</span>
+          </div>
+          <div class="insight__footer-row">
+            <span class="insight__footer-label">Categories</span>
+            <span class="insight__footer-value">{{ categoryBreakdown().length }}</span>
+          </div>
+          <div class="insight__footer-row">
+            <span class="insight__footer-label">Total value</span>
+            <span class="insight__footer-value">{{ formatPesoCompact(catalogSummary().totalValue) }}</span>
+          </div>
+        </div>
+
         @if (hasActiveFilters()) {
           <button class="insight__clear" (click)="clearFilters()">Clear all filters</button>
         }
@@ -808,7 +818,7 @@
     </aside>
   </div>
 
-  <!-- ═══ Row hover preview (B14) ═══ -->
+  <!-- ═══ Row hover preview ═══ -->
   @if (hoveredItem(); as hov) {
     <div class="hover-preview" [style.left.px]="hoveredPos().x" [style.top.px]="hoveredPos().y">
       <div class="hover-preview__head">
@@ -840,7 +850,7 @@
 
 </div>
 
-<!-- ═══ Advanced filter drawer (B11) ═══ -->
+<!-- ═══ Advanced filter drawer ═══ -->
 @if (advancedFilterOpen()) {
   <div class="drawer-overlay" (click)="closeAdvancedFilter()">
     <aside class="drawer" (click)="$event.stopPropagation()">

@@ -1,0 +1,311 @@
+<div class="page">
+
+  <!-- ═══ Page header ═══ -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title">Donations</h1>
+      <p class="page-header__subtitle">
+        Record of items given by donors to causes.
+      </p>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn--primary" (click)="openAddModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Record donation
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ Stat strip ═══ -->
+  <div class="stat-strip">
+    <div class="stat-item">
+      <div class="stat-item__value">{{ stats().count }}</div>
+      <div class="stat-item__label">Donations</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-item__value stat-item__value--primary">{{ formatPesoCompact(stats().totalValue) }}</div>
+      <div class="stat-item__label">Total value received</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-item__value stat-item__value--accent">{{ formatPesoCompact(stats().averageValue) }}</div>
+      <div class="stat-item__label">Average per donation</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-item__value">{{ stats().totalLines }}</div>
+      <div class="stat-item__label">Total item entries</div>
+    </div>
+  </div>
+
+  <!-- ═══ Toolbar ═══ -->
+  <div class="card toolbar">
+    <div class="toolbar__search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/>
+      </svg>
+      <input type="text" placeholder="Search by donor, cause, NGO, or item..."
+             [ngModel]="searchQuery()" (ngModelChange)="onSearchInput($event)" />
+    </div>
+
+    <select class="toolbar__select"
+            [ngModel]="donorFilter()"
+            (ngModelChange)="onDonorChange(+$event)">
+      <option [ngValue]="0">All donors</option>
+      @for (d of donors(); track d.id) {
+        <option [ngValue]="d.id">{{ d.name }}</option>
+      }
+    </select>
+
+    <select class="toolbar__select"
+            [ngModel]="causeFilter()"
+            (ngModelChange)="onCauseChange(+$event)">
+      <option [ngValue]="0">All causes</option>
+      @for (c of causes(); track c.id) {
+        <option [ngValue]="c.id">{{ c.title }}</option>
+      }
+    </select>
+  </div>
+
+  <!-- ═══ Filter chips ═══ -->
+  @if (hasActiveFilters()) {
+    <div class="chips">
+      @if (searchQuery()) {
+        <button class="chip" (click)="onSearchInput('')">
+          "{{ searchQuery() }}" <span class="chip__x">×</span>
+        </button>
+      }
+      @if (donorFilter() > 0) {
+        <button class="chip chip--accent" (click)="onDonorChange(0)">
+          {{ donors().find(d => d.id === donorFilter())?.name || 'Donor' }}
+          <span class="chip__x">×</span>
+        </button>
+      }
+      @if (causeFilter() > 0) {
+        <button class="chip chip--accent" (click)="onCauseChange(0)">
+          {{ causes().find(c => c.id === causeFilter())?.title || 'Cause' }}
+          <span class="chip__x">×</span>
+        </button>
+      }
+      <button class="chip chip--clear" (click)="clearFilters()">Clear all</button>
+    </div>
+  }
+
+  <!-- ═══ Donations list ═══ -->
+  <div class="card donations-list">
+
+    @if (loading()) {
+      <div class="donations-skeleton">
+        @for (i of [1,2,3,4]; track i) {
+          <div class="donation-skel">
+            <div class="skel skel--lg"></div>
+            <div class="skel skel--md"></div>
+            <div class="skel skel--sm"></div>
+          </div>
+        }
+      </div>
+    }
+
+    @else if (error()) {
+      <div class="table-state">
+        <div class="table-state__icon table-state__icon--error">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <h3 class="table-state__title">Couldn't load donations</h3>
+        <p class="table-state__body">{{ error() }}</p>
+        <button class="btn btn--primary" (click)="loadDonations()">Retry</button>
+      </div>
+    }
+
+    @else if (allDonations().length === 0) {
+      <div class="table-state">
+        <div class="table-state__icon table-state__icon--empty">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </div>
+        <h3 class="table-state__title">No donations yet</h3>
+        <p class="table-state__body">Record your first donation to get started.</p>
+        <button class="btn btn--primary" (click)="openAddModal()">Record donation</button>
+      </div>
+    }
+
+    @else if (filteredDonations().length === 0) {
+      <div class="table-state">
+        <div class="table-state__icon table-state__icon--empty">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/>
+          </svg>
+        </div>
+        <h3 class="table-state__title">No matching donations</h3>
+        <p class="table-state__body">Try a different search term or clear your filters.</p>
+        <button class="btn btn--outline" (click)="clearFilters()">Clear filters</button>
+      </div>
+    }
+
+    @else {
+      <div class="donations">
+        @for (donation of filteredDonations(); track donation.id) {
+          <article class="donation" [class.donation--expanded]="expandedId() === donation.id">
+
+            <!-- ─── Header row ─── -->
+            <div class="donation__row" (click)="toggleExpand(donation.id)">
+              <div class="donation__cell donation__cell--donor">
+                <div class="donation__label">Donor</div>
+                <div class="donation__value">{{ donation.donorName }}</div>
+              </div>
+
+              <div class="donation__cell donation__cell--cause">
+                <div class="donation__label">Cause</div>
+                <div class="donation__value">{{ donation.causeTitle }}</div>
+                <div class="donation__sub">{{ donation.ngoName }}</div>
+              </div>
+
+              <div class="donation__cell donation__cell--count">
+                <div class="donation__label">Items</div>
+                <div class="donation__value">{{ donation.lines.length }}</div>
+              </div>
+
+              <div class="donation__cell donation__cell--total">
+                <div class="donation__label">Total value</div>
+                <div class="donation__value donation__value--total">
+                  {{ formatCurrency(donation.totalValue) }}
+                </div>
+              </div>
+
+              <div class="donation__cell donation__cell--date">
+                <div class="donation__label">Date</div>
+                <div class="donation__value">{{ formatDate(donation.donatedAtUtc) }}</div>
+              </div>
+
+              <div class="donation__cell donation__cell--actions"
+                   (click)="$event.stopPropagation()">
+                <button class="icon-btn"
+                        (click)="openEditModal(donation, $event)"
+                        title="Edit">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                  </svg>
+                </button>
+                <button class="icon-btn icon-btn--danger"
+                        (click)="openDeleteModal(donation, $event)"
+                        title="Delete">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                </button>
+                <div class="chev" [class.chev--open]="expandedId() === donation.id">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- ─── Expanded details ─── -->
+            @if (expandedId() === donation.id) {
+              <div class="donation__details">
+                @if (donation.notes) {
+                  <div class="donation__notes">
+                    <span class="donation__notes-label">Notes:</span>
+                    {{ donation.notes }}
+                  </div>
+                }
+
+                <table class="lines-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Code</th>
+                      <th class="text-right">Unit price</th>
+                      <th class="text-right">Quantity</th>
+                      <th class="text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (line of donation.lines; track line.id) {
+                      <tr>
+                        <td class="cell-name">{{ line.itemName }}</td>
+                        <td class="cell-mono">{{ line.itemCode }}</td>
+                        <td class="text-right">{{ formatCurrency(line.unitPriceAtTimeOfDonation) }}</td>
+                        <td class="text-right">{{ line.quantity }}</td>
+                        <td class="text-right cell-price">{{ formatCurrency(line.subtotal) }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colspan="4" class="text-right foot-label">Total</td>
+                      <td class="text-right foot-value">{{ formatCurrency(donation.totalValue) }}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            }
+
+          </article>
+        }
+      </div>
+
+      <div class="donations-footer">
+        Showing {{ filteredDonations().length }} of {{ allDonations().length }} donations
+      </div>
+    }
+
+  </div>
+
+</div>
+
+<!-- ═══ Modals ═══ -->
+@if (showFormModal()) {
+  <app-donation-form-modal
+    [donation]="editingDonation()"
+    (closed)="onFormClosed()"
+    (saved)="onFormSaved($event)" />
+}
+
+@if (showDeleteModal()) {
+  <app-donation-delete-confirm-modal
+    [donation]="deletingDonation()"
+    (closed)="closeDeleteModal()"
+    (confirmed)="onDeleteConfirmed($event)" />
+}
+
+<!-- ═══ Toast ═══ -->
+@for (t of toastList(); track t.id) {
+  <div class="toast" [class.toast--error]="t.type === 'error'" (click)="dismissToast()">
+    <span class="toast__icon">
+      @if (t.type === 'success') {
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      } @else {
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      }
+    </span>
+    <span class="toast__message">{{ t.message }}</span>
+    <button class="toast__close" (click)="dismissToast(); $event.stopPropagation()" aria-label="Dismiss">×</button>
+    <span class="toast__progress" [style.animation-duration.ms]="t.duration"></span>
+  </div>
+}

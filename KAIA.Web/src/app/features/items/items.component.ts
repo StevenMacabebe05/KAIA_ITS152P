@@ -7,6 +7,10 @@ import { Item } from '../../core/models/item.model';
 import { ItemFormModalComponent } from './item-form.modal';
 import { DeleteConfirmModalComponent } from './delete-confirm.modal';
 import { QrCodeComponent } from '../../shared/qr-code.component';
+import { InventoryApiService } from '../../core/services/inventory-api.service';
+import { InventoryItem } from '../../core/models/inventory.model';
+
+
 
 type SortField    = 'name' | 'unitPrice' | 'createdAt';
 type SortDir      = 'asc' | 'desc';
@@ -57,9 +61,11 @@ const DEFAULT_COLUMNS: ColumnKey[] = ['name', 'code', 'brand', 'price'];
 })
 export class ItemsComponent implements OnInit {
   private readonly api = inject(ItemApiService);
+  private readonly inventoryApi = inject(InventoryApiService);
 
   // ─── Core data ─────────────────────────────────────────────────────
   readonly allItems = signal<Item[]>([]);
+    readonly inventoryByItemId = signal<Map<number, InventoryItem>>(new Map());
   readonly loading  = signal(true);
   readonly error    = signal<string | null>(null);
 
@@ -71,7 +77,7 @@ export class ItemsComponent implements OnInit {
   readonly sortBy         = signal<SortField>('createdAt');
   readonly sortDir        = signal<SortDir>('desc');
   readonly page           = signal(1);
-  readonly pageSize       = 8;
+  readonly pageSize       = 11;
 
   readonly brandSearchQuery = signal('');
   readonly showAllBrands    = signal(false);
@@ -286,12 +292,24 @@ export class ItemsComponent implements OnInit {
   loadItems(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.api.getAll().subscribe({
-      next: items => {
+
+    // Load items and inventory in parallel
+    forkJoin({
+      items: this.api.getAll(),
+      inventory: this.inventoryApi.getAll()
+    }).subscribe({
+      next: ({ items, inventory }) => {
         this.allItems.set(items);
+
+        const map = new Map<number, InventoryItem>();
+        for (const inv of inventory) map.set(inv.itemId, inv);
+        this.inventoryByItemId.set(map);
+
         this.loading.set(false);
+
         const sel = this.selectedItem();
         if (sel) this.selectedItem.set(items.find(i => i.id === sel.id) ?? null);
+
         const selected = this.selectedIds();
         if (selected.size > 0) {
           const liveIds = new Set(items.map(i => i.id));
@@ -305,6 +323,11 @@ export class ItemsComponent implements OnInit {
         this.loading.set(false);
       }
     });
+  }
+
+  /** Stock for a given item id, or 0 if not tracked. */
+  stockFor(itemId: number): number {
+    return this.inventoryByItemId().get(itemId)?.stock ?? 0;
   }
 
   // ─── Row click / hover ─────────────────────────────────────────────

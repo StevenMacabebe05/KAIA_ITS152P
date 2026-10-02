@@ -1,8 +1,8 @@
+using System.Text.Json.Serialization;
 using KAIA.API.Data;
 using KAIA.API.Middleware;
 using KAIA.API.Services;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,14 +15,27 @@ builder.Services
         o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         o.JsonSerializerOptions.DefaultIgnoreCondition =
             System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+
+        // Serialize enums as strings — e.g. "Verified" not 1
+        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-// ─── EF Core (InMemory for M1 — swap to UseSqlServer in M3) ────────────────
+// ─── EF Core — SQL Server (LocalDB) ────────────────────────────────────────
+var connectionString = builder.Configuration.GetConnectionString("KaiaDb")
+    ?? throw new InvalidOperationException("Connection string 'KaiaDb' was not found in appsettings.json.");
+
 builder.Services.AddDbContext<KaiaDbContext>(options =>
-    options.UseInMemoryDatabase("KaiaDb"));
+    options.UseSqlServer(connectionString));
 
 // ─── Services ──────────────────────────────────────────────────────────────
+
 builder.Services.AddScoped<IItemService, ItemService>();
+builder.Services.AddScoped<INgoService, NgoService>();
+builder.Services.AddScoped<ICauseService, CauseService>();
+builder.Services.AddScoped<IDonorService, DonorService>();
+builder.Services.AddScoped<IDonationService, DonationService>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IDistributionService, DistributionService>();
 
 // ─── CORS for the Angular dev server ───────────────────────────────────────
 const string AngularCorsPolicy = "AngularDev";
@@ -42,14 +55,14 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "KAIA API",
         Version = "v1",
-        Description = "RESTful API for KAIA — For Causes That Matter (M1: Donation Items).",
+        Description = "RESTful API for KAIA — For Causes That Matter (M2: Donation & Inventory Management).",
         Contact = new OpenApiContact { Name = "KAIA Project" }
     });
 });
 
 var app = builder.Build();
 
-// ─── Seed the in-memory store on startup ───────────────────────────────────
+// ─── Seed the database on first run ────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<KaiaDbContext>();

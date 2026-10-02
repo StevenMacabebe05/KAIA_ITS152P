@@ -5,6 +5,7 @@ import { catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { Item, CreateItem, UpdateItem } from '../models/item.model';
 
+/** Wraps a ProblemDetails response from the API so components can show friendly messages. */
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -41,17 +42,26 @@ export class ItemApiService {
     return this.http.delete<void>(`${this.base}/${id}`).pipe(catchError(this.handle));
   }
 
+  /**
+   * Normalizes any HTTP error into an ApiError the UI can display.
+   *
+   * ASP.NET Core returns `application/problem+json` — Angular's HttpClient
+   * does not auto-parse that content type, so `err.error` can arrive as a
+   * raw JSON string. We parse it back into an object here and prefer the
+   * `detail` field (the human-friendly message) over `title` (the RFC 7807
+   * reason phrase, e.g. "Conflict").
+   */
   private handle = (err: HttpErrorResponse) => {
     let apiErr: ApiError;
 
-    // Angular leaves `err.error` as a string when Content-Type is
-    // application/problem+json. Try parsing it back into an object.
+    // Parse err.error back to an object if it arrived as a JSON string
     let body: any = err.error;
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch { body = null; }
     }
 
     if (body && typeof body === 'object') {
+      // Validation errors (400 with `errors` object)
       if (body.errors && typeof body.errors === 'object') {
         const firstField = Object.keys(body.errors)[0];
         apiErr = new ApiError(
@@ -61,13 +71,24 @@ export class ItemApiService {
           body.errors
         );
       } else {
+        // Regular problem details — prefer `detail`, then fall back through
+        // title, status text, and a generic message.
+        const friendly =
+          (body.detail && String(body.detail).trim()) ||
+          (body.title && String(body.title).trim() && body.title !== 'Conflict'
+            ? body.title
+            : '') ||
+          err.statusText ||
+          `Request failed (${err.status}).`;
+
         apiErr = new ApiError(
           err.status,
           body.title ?? `HTTP ${err.status}`,
-          body.detail ?? body.title ?? err.statusText ?? `Request failed (${err.status}).`
+          friendly
         );
       }
     } else if (err.status === 0) {
+      // Network error, CORS failure, server down
       apiErr = new ApiError(
         0,
         'Connection failed',
@@ -82,6 +103,5 @@ export class ItemApiService {
     }
 
     return throwError(() => apiErr);
-  }
-
+  };
 }

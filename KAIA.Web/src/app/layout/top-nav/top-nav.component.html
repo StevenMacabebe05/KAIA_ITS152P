@@ -13,11 +13,8 @@
            [routerLink]="item.disabled ? null : item.path"
            routerLinkActive="topnav__link--active"
            [class.topnav__link--disabled]="item.disabled"
-           [attr.title]="item.disabled ? (item.label + ' — coming in ' + item.badge) : item.label">
+           [attr.title]="item.disabled ? (item.label + ' — coming soon') : item.label">
           {{ item.label }}
-          @if (item.badge) {
-            <span class="topnav__badge-pill">{{ item.badge }}</span>
-          }
         </a>
       }
     </nav>

@@ -11,7 +11,6 @@ interface NavItem {
   label: string;
   path: string;
   disabled: boolean;
-  badge?: string;
 }
 
 interface AppNotification {
@@ -39,16 +38,16 @@ export class TopNavComponent implements OnInit {
   readonly theme = this.themeS.theme;
 
   readonly navItems: NavItem[] = [
-    { label: 'Dashboard',      path: '/dashboard',  disabled: false },
-    { label: 'Donation Items', path: '/items',      disabled: false },
-    { label: 'NGOs',           path: '/ngos',       disabled: true, badge: 'M3' },
-    { label: 'Causes',         path: '/causes',     disabled: true, badge: 'M3' },
-    { label: 'Donations',      path: '/donations',  disabled: true, badge: 'M3' },
-    { label: 'Inventory',      path: '/inventory',  disabled: true, badge: 'M3' },
-    { label: 'Reports',        path: '/reports',    disabled: true, badge: 'M3' }
+    { label: 'Dashboard',      path: '/dashboard',      disabled: false },
+    { label: 'Inventory',      path: '/items',          disabled: false },
+    { label: 'NGOs',           path: '/ngos',           disabled: false },
+    { label: 'Causes',         path: '/causes',         disabled: false },
+    { label: 'Donors',         path: '/donors',         disabled: false },
+    { label: 'Donations',      path: '/donations',      disabled: false },
+    { label: 'Distributions',  path: '/distributions',  disabled: false },
+    { label: 'Reports',        path: '/reports',        disabled: true }
   ];
 
-  // ─── User ──────────────────────────────────────────────────────────
   readonly user = {
     name: 'Steven Macabebe',
     email: 'steven.macabebe@example.com',
@@ -56,11 +55,9 @@ export class TopNavComponent implements OnInit {
     initials: 'SM'
   };
 
-  // ─── Panel state ───────────────────────────────────────────────────
   readonly profileOpen       = signal(false);
   readonly notificationsOpen = signal(false);
 
-  // ─── Items + notifications ─────────────────────────────────────────
   private readonly items = signal<Item[]>([]);
   private lastChecked    = signal<number>(this.loadLastChecked());
 
@@ -75,7 +72,6 @@ export class TopNavComponent implements OnInit {
 
     const result: AppNotification[] = [];
 
-    // 1. Latest addition
     const latest = list[0];
     result.push({
       id: 'latest',
@@ -86,7 +82,6 @@ export class TopNavComponent implements OnInit {
       timestamp: latest.createdAtUtc
     });
 
-    // 2. This week count
     const thisWeek = list.filter(i => new Date(i.createdAtUtc).getTime() >= weekCutoff).length;
     if (thisWeek > 0) {
       result.push({
@@ -99,7 +94,6 @@ export class TopNavComponent implements OnInit {
       });
     }
 
-    // 3. Total value
     const total = list.reduce((s, i) => s + i.unitPrice, 0);
     result.push({
       id: 'value',
@@ -110,7 +104,6 @@ export class TopNavComponent implements OnInit {
       timestamp: latest.createdAtUtc
     });
 
-    // 4. Top brand
     const brandCounts = new Map<string, number>();
     for (const it of list) brandCounts.set(it.brand, (brandCounts.get(it.brand) ?? 0) + 1);
     const [topBrand, count] = Array.from(brandCounts.entries()).sort((a, b) => b[1] - a[1])[0];
@@ -138,7 +131,6 @@ export class TopNavComponent implements OnInit {
     });
   }
 
-  // ─── Panel toggles ─────────────────────────────────────────────────
   toggleProfile(event: MouseEvent): void {
     event.stopPropagation();
     this.profileOpen.update(v => !v);
@@ -162,7 +154,6 @@ export class TopNavComponent implements OnInit {
   @HostListener('document:keydown.escape')
   onEscape(): void { this.closeAll(); }
 
-  // ─── Notifications actions ─────────────────────────────────────────
   markAllRead(): void {
     const now = Date.now();
     this.lastChecked.set(now);
@@ -176,10 +167,8 @@ export class TopNavComponent implements OnInit {
     } catch { return 0; }
   }
 
-  // ─── Theme ─────────────────────────────────────────────────────────
   toggleTheme(): void { this.themeS.toggle(); }
 
-  // ─── Helpers ───────────────────────────────────────────────────────
   relativeTime(iso: string): string {
     const diff = Date.now() - new Date(iso).getTime();
     const mins = Math.round(diff / 60000);

@@ -1,0 +1,234 @@
+<div class="page">
+
+  <!-- ═══ Page header ═══ -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title">Donors</h1>
+      <p class="page-header__subtitle">
+        Individuals and organizations that give to KAIA.
+      </p>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn--primary" (click)="openAddModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Add donor
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ Stat strip ═══ -->
+  <div class="stat-strip">
+    <div class="stat-item">
+      <div class="stat-item__value">{{ counts().total }}</div>
+      <div class="stat-item__label">Total donors</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-item__value stat-item__value--primary">{{ counts().individuals }}</div>
+      <div class="stat-item__label">Individuals</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-item__value stat-item__value--accent">{{ counts().organizations }}</div>
+      <div class="stat-item__label">Organizations</div>
+    </div>
+  </div>
+
+  <!-- ═══ Toolbar ═══ -->
+  <div class="card toolbar">
+    <div class="toolbar__search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/>
+      </svg>
+      <input type="text" placeholder="Search by name, email, or phone..."
+             [ngModel]="searchQuery()" (ngModelChange)="onSearchInput($event)" />
+    </div>
+
+    <select class="toolbar__select"
+            [ngModel]="typeFilter()"
+            (ngModelChange)="onTypeChange($event)">
+      <option value="">All types</option>
+      <option value="Individual">Individuals</option>
+      <option value="Organization">Organizations</option>
+    </select>
+  </div>
+
+  <!-- ═══ Filter chips ═══ -->
+  @if (hasActiveFilters()) {
+    <div class="chips">
+      @if (searchQuery()) {
+        <button class="chip" (click)="onSearchInput('')">
+          "{{ searchQuery() }}" <span class="chip__x">×</span>
+        </button>
+      }
+      @if (typeFilter()) {
+        <button class="chip chip--accent" (click)="onTypeChange('')">
+          {{ typeFilter() }}s <span class="chip__x">×</span>
+        </button>
+      }
+      <button class="chip chip--clear" (click)="clearFilters()">Clear all</button>
+    </div>
+  }
+
+  <!-- ═══ Donor table ═══ -->
+  <div class="card table-card">
+
+    @if (loading()) {
+      <div class="table-skeleton">
+        @for (i of [1,2,3,4,5]; track i) {
+          <div class="skeleton-row">
+            <div class="skeleton-cell skeleton-cell--lg"></div>
+            <div class="skeleton-cell skeleton-cell--md"></div>
+            <div class="skeleton-cell skeleton-cell--md"></div>
+            <div class="skeleton-cell skeleton-cell--sm"></div>
+          </div>
+        }
+      </div>
+    }
+
+    @else if (error()) {
+      <div class="table-state">
+        <div class="table-state__icon table-state__icon--error">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <h3 class="table-state__title">Couldn't load donors</h3>
+        <p class="table-state__body">{{ error() }}</p>
+        <button class="btn btn--primary" (click)="loadDonors()">Retry</button>
+      </div>
+    }
+
+    @else if (allDonors().length === 0) {
+      <div class="table-state">
+        <div class="table-state__icon table-state__icon--empty">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <h3 class="table-state__title">No donors yet</h3>
+        <p class="table-state__body">Add your first donor to get started.</p>
+        <button class="btn btn--primary" (click)="openAddModal()">Add donor</button>
+      </div>
+    }
+
+    @else if (filteredDonors().length === 0) {
+      <div class="table-state">
+        <div class="table-state__icon table-state__icon--empty">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/>
+          </svg>
+        </div>
+        <h3 class="table-state__title">No matching donors</h3>
+        <p class="table-state__body">Try a different search term or clear your filters.</p>
+        <button class="btn btn--outline" (click)="clearFilters()">Clear filters</button>
+      </div>
+    }
+
+    @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Added</th>
+            <th class="text-right"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (donor of filteredDonors(); track donor.id) {
+            <tr class="data-row" (click)="openEditModal(donor)">
+              <td class="cell-name">
+                <span class="donor-avatar" [class]="typeClass(donor.type)">
+                  {{ initials(donor.name) }}
+                </span>
+                <span class="cell-name__text">{{ donor.name }}</span>
+              </td>
+              <td>
+                <span class="type-pill" [class]="typeClass(donor.type)">
+                  {{ donor.type }}
+                </span>
+              </td>
+              <td class="cell-muted">{{ donor.email || '—' }}</td>
+              <td class="cell-muted">{{ donor.phone || '—' }}</td>
+              <td class="cell-muted">{{ formatDate(donor.createdAtUtc) }}</td>
+              <td class="text-right cell-actions" (click)="$event.stopPropagation()">
+                <button class="icon-btn" (click)="openEditModal(donor)" title="Edit">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                  </svg>
+                </button>
+                <button class="icon-btn icon-btn--danger" (click)="openDeleteModal(donor)"
+                        title="Delete">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      <div class="table-footer">
+        Showing {{ filteredDonors().length }} of {{ allDonors().length }} donors
+      </div>
+    }
+
+  </div>
+
+</div>
+
+<!-- ═══ Modals ═══ -->
+@if (showFormModal()) {
+  <app-donor-form-modal
+    [donor]="editingDonor()"
+    (closed)="onFormClosed()"
+    (saved)="onFormSaved($event)" />
+}
+
+@if (showDeleteModal()) {
+  <app-donor-delete-confirm-modal
+    [donor]="deletingDonor()"
+    (closed)="closeDeleteModal()"
+    (confirmed)="onDeleteConfirmed($event)" />
+}
+
+<!-- ═══ Toast ═══ -->
+@for (t of toastList(); track t.id) {
+  <div class="toast" [class.toast--error]="t.type === 'error'" (click)="dismissToast()">
+    <span class="toast__icon">
+      @if (t.type === 'success') {
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      } @else {
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      }
+    </span>
+    <span class="toast__message">{{ t.message }}</span>
+    <button class="toast__close" (click)="dismissToast(); $event.stopPropagation()" aria-label="Dismiss">×</button>
+    <span class="toast__progress" [style.animation-duration.ms]="t.duration"></span>
+  </div>
+}

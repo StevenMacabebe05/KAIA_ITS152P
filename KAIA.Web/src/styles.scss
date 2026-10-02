@@ -280,3 +280,8 @@ a { color: var(--color-primary); text-decoration: none; }
 .btn--accent:hover:not(:disabled) {
   background: linear-gradient(135deg, #FDBA74 0%, #F97316 100%);
 }
+/* ═══════════ Hide the floating assistant when a modal or drawer is open ═══════════ */
+body:has(.drawer-overlay) app-assistant,
+body:has(.overlay) app-assistant {
+  display: none !important;
+}

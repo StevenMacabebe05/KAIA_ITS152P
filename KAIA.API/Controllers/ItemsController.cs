@@ -34,7 +34,10 @@ public class ItemsController : ControllerBase
     {
         var item = await _items.GetByIdAsync(id, ct);
         if (item is null)
-            return NotFound(Problem($"Item {id} not found.", StatusCodes.Status404NotFound, "Not Found"));
+            return Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Item not found",
+                detail: $"Item {id} does not exist in the catalog.");
 
         return Ok(item);
     }
@@ -47,7 +50,10 @@ public class ItemsController : ControllerBase
     public async Task<ActionResult<ItemDto>> Create([FromBody] CreateItemDto dto, CancellationToken ct)
     {
         if (await _items.CodeExistsAsync(dto.Code, null, ct))
-            return Conflict(Problem($"Code '{dto.Code.ToUpperInvariant()}' is already in use.", StatusCodes.Status409Conflict, "Conflict"));
+            return Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Code already in use",
+                detail: $"Code '{dto.Code.ToUpperInvariant()}' is already in use. Choose a different code.");
 
         var created = await _items.CreateAsync(dto, ct);
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
@@ -62,11 +68,17 @@ public class ItemsController : ControllerBase
     public async Task<ActionResult<ItemDto>> Update(int id, [FromBody] UpdateItemDto dto, CancellationToken ct)
     {
         if (await _items.CodeExistsAsync(dto.Code, id, ct))
-            return Conflict(Problem($"Code '{dto.Code.ToUpperInvariant()}' is already in use.", StatusCodes.Status409Conflict, "Conflict"));
+            return Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Code already in use",
+                detail: $"Code '{dto.Code.ToUpperInvariant()}' is already in use. Choose a different code.");
 
         var updated = await _items.UpdateAsync(id, dto, ct);
         if (updated is null)
-            return NotFound(Problem($"Item {id} not found.", StatusCodes.Status404NotFound, "Not Found"));
+            return Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Item not found",
+                detail: $"Item {id} does not exist in the catalog.");
 
         return Ok(updated);
     }
@@ -79,17 +91,11 @@ public class ItemsController : ControllerBase
     {
         var ok = await _items.DeleteAsync(id, ct);
         if (!ok)
-            return NotFound(Problem($"Item {id} not found.", StatusCodes.Status404NotFound, "Not Found"));
+            return Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Item not found",
+                detail: $"Item {id} does not exist in the catalog.");
 
         return NoContent();
     }
-
-    private ObjectResult Problem(string detail, int status, string title) =>
-        StatusCode(status, new ProblemDetails
-        {
-            Status = status,
-            Title = title,
-            Detail = detail,
-            Instance = HttpContext.Request.Path
-        });
 }
