@@ -182,10 +182,13 @@ a { color: var(--color-primary); text-decoration: none; }
 .btn--primary:hover:not(:disabled) { background: var(--color-primary-hover); }
 
 .btn--accent {
-  background: var(--color-accent);
+  background: linear-gradient(135deg, #FB923C 0%, #EA580C 100%);
+  border: none;
   color: #fff;
 }
-.btn--accent:hover:not(:disabled) { background: var(--color-accent-hover); }
+.btn--accent:hover:not(:disabled) {
+  background: linear-gradient(135deg, #FDBA74 0%, #F97316 100%);
+}
 
 .btn--outline {
   background: var(--color-surface);
@@ -271,17 +274,121 @@ a { color: var(--color-primary); text-decoration: none; }
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
 
-/* Gradient accent buttons */
-.btn--accent {
-  background: linear-gradient(135deg, #FB923C 0%, #EA580C 100%);
-  border: none;
-}
-
-.btn--accent:hover:not(:disabled) {
-  background: linear-gradient(135deg, #FDBA74 0%, #F97316 100%);
-}
-/* ═══════════ Hide the floating assistant when a modal or drawer is open ═══════════ */
+/* ═══ Hide floating assistant when a modal or drawer is open ═══ */
 body:has(.drawer-overlay) app-assistant,
 body:has(.overlay) app-assistant {
   display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PRINT STYLES
+   Everything inside @media print only applies when the user opens the
+   browser print dialog. Nothing here affects on-screen rendering.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* @page must live at the top level (it can't be nested inside @media) */
+@page {
+  size: A4 landscape;
+  margin: 12mm;
+}
+
+@media print {
+  /* ─── Hide global chrome ─── */
+  app-top-nav,
+  app-footer,
+  app-assistant,
+  .tabs,
+  .subtabs,
+  .toolbar,
+  .action-bar,
+  .page-header .action-bar,
+  .toast,
+  .fab,
+  .chat,
+  .hover-preview,
+  .drawer-overlay {
+    display: none !important;
+  }
+
+  /* ─── Force light, print-friendly colors ─── */
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .page {
+    padding: 0 !important;
+    max-width: none !important;
+    width: auto !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+
+  .page-header {
+    margin-bottom: 12px !important;
+  }
+
+  /* ─── Cards become simple bordered boxes ─── */
+  .card,
+  .panel,
+  .kpi,
+  .cause-tile,
+  .cause-progress {
+    background: #ffffff !important;
+    border: 1px solid #d1d5db !important;
+    box-shadow: none !important;
+    color: #000000 !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* ─── Remove every scroll container's height cap and overflow ─── */
+  .panel__scroll,
+  .panel__scroll--tall,
+  .report-content,
+  .report-content * {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* ─── Neutralize sticky headers ─── */
+  .report-table thead th {
+    position: static !important;
+    background: #f3f4f6 !important;
+    color: #374151 !important;
+  }
+
+  .report-table tbody td { color: #111827 !important; }
+
+  /* ─── Grid layouts collapse for print ─── */
+  .grid-2,
+  .kpi-strip,
+  .cause-grid {
+    display: block !important;
+  }
+
+  .grid-2 > *,
+  .kpi-strip > *,
+  .cause-grid > * {
+    margin-bottom: 12px !important;
+  }
+
+  /* ─── Force full-width layout for print so nothing gets clipped ─── */
+  .report-content,
+  .kpi-strip,
+  .grid-2,
+  .panel {
+    max-width: none !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
+  /* ─── Preserve colors on pills, bars, progress ─── */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }

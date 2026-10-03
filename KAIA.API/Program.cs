@@ -36,6 +36,7 @@ builder.Services.AddScoped<IDonorService, DonorService>();
 builder.Services.AddScoped<IDonationService, DonationService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IDistributionService, DistributionService>();
+builder.Services.AddScoped<IReportService, ReportService>();
 
 // ─── CORS for the Angular dev server ───────────────────────────────────────
 const string AngularCorsPolicy = "AngularDev";

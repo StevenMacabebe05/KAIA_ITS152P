@@ -1,0 +1,625 @@
+<div class="page" #reportRoot>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title">Reports</h1>
+      <p class="page-header__subtitle">
+        Aggregated summaries across donations, inventory, distributions, and causes.
+      </p>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn--outline" (click)="printReport()" [disabled]="loading()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+        Print
+      </button>
+
+      <button class="btn btn--outline" (click)="exportAsPng()"
+              [disabled]="exporting() || loading()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        {{ exporting() ? 'Exporting…' : 'Export PNG' }}
+      </button>
+
+      <button class="btn btn--outline" (click)="loadAll()" [disabled]="loading()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+          <path d="M21 3v5h-5"/>
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+          <path d="M3 21v-5h5"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    @for (tab of tabs; track tab.key) {
+      <button class="tab"
+              [class.tab--active]="activeTab() === tab.key"
+              (click)="setTab(tab.key)">
+        {{ tab.label }}
+      </button>
+    }
+  </div>
+
+  @if (loading()) {
+    <div class="card state-card">
+      <div class="state-card__spinner"></div>
+      <h3 class="state-card__title">Loading reports…</h3>
+    </div>
+  }
+
+  @else if (error()) {
+    <div class="card state-card">
+      <div class="state-card__icon state-card__icon--error">!</div>
+      <h3 class="state-card__title">Couldn't load reports</h3>
+      <p class="state-card__body">{{ error() }}</p>
+      <button class="btn btn--primary" (click)="loadAll()">Retry</button>
+    </div>
+  }
+
+  @else {
+
+    <!-- ══════════════════ DONATIONS ══════════════════ -->
+    @if (activeTab() === 'donations' && donationReport(); as dr) {
+      <div class="report-content">
+        <div class="kpi-strip">
+          <div class="kpi">
+            <div class="kpi__value">{{ dr.totalDonations }}</div>
+            <div class="kpi__label">Total donations</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__value kpi__value--primary">{{ formatPesoCompact(dr.totalValue) }}</div>
+            <div class="kpi__label">Total value received</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__value kpi__value--accent">{{ formatPesoCompact(dr.averageValue) }}</div>
+            <div class="kpi__label">Average per donation</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__value">{{ dr.totalLineItems }}</div>
+            <div class="kpi__label">Item entries</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card panel">
+            <div class="panel__header">
+              <div>
+                <h2 class="panel__title">Monthly donations</h2>
+                <p class="panel__subtitle">Value received per month.</p>
+              </div>
+            </div>
+
+            @if (dr.monthlyTrend.length === 0) {
+              <div class="panel__empty">No donations recorded yet.</div>
+            } @else {
+              <div class="chart-bars">
+                @for (m of dr.monthlyTrend; track m.month) {
+                  <div class="chart-bar">
+                    <div class="chart-bar__value">{{ formatPesoCompact(m.totalValue) }}</div>
+                    <div class="chart-bar__track">
+                      <div class="chart-bar__fill"
+                           [style.height.%]="(m.totalValue / activeDonationTrendMax()) * 100"></div>
+                    </div>
+                    <div class="chart-bar__label">{{ m.monthLabel }}</div>
+                    <div class="chart-bar__sub">{{ m.count }} {{ m.count === 1 ? 'donation' : 'donations' }}</div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="card panel">
+            <div class="panel__header">
+              <div>
+                <h2 class="panel__title">Top donors</h2>
+                <p class="panel__subtitle">By total value donated.</p>
+              </div>
+            </div>
+
+            @if (dr.byDonor.length === 0) {
+              <div class="panel__empty">No donors yet.</div>
+            } @else {
+              <div class="panel__scroll">
+                <table class="report-table">
+                  <thead>
+                    <tr>
+                      <th>Donor</th>
+                      <th>Type</th>
+                      <th class="text-right">Donations</th>
+                      <th class="text-right">Total value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (d of dr.byDonor; track d.donorId) {
+                      <tr>
+                        <td class="cell-strong">{{ d.donorName }}</td>
+                        <td><span class="type-pill" [class.type-pill--org]="d.donorType === 'Organization'">{{ d.donorType }}</span></td>
+                        <td class="text-right">{{ d.donationCount }}</td>
+                        <td class="text-right cell-price">{{ formatCurrency(d.totalValue) }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="card panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">Donations by cause</h2>
+              <p class="panel__subtitle">Total value received per campaign.</p>
+            </div>
+          </div>
+
+          @if (dr.byCause.length === 0) {
+            <div class="panel__empty">No donations recorded yet.</div>
+          } @else {
+            <ul class="bar-list">
+              @for (c of dr.byCause; track c.causeId) {
+                <li class="bar-row">
+                  <div class="bar-row__head">
+                    <div class="bar-row__name">
+                      {{ c.causeTitle }}
+                      <span class="bar-row__ngo">{{ c.ngoName }}</span>
+                    </div>
+                    <div class="bar-row__values">
+                      <span class="bar-row__count">{{ c.donationCount }} {{ c.donationCount === 1 ? 'donation' : 'donations' }}</span>
+                      <span class="bar-row__value">{{ formatCurrency(c.totalValue) }}</span>
+                      <span class="bar-row__pct">{{ formatPercent(c.percentOfTotal) }}</span>
+                    </div>
+                  </div>
+                  <div class="bar-row__track">
+                    <div class="bar-row__fill" [style.width.%]="c.percentOfTotal"></div>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- ══════════════════ INVENTORY ══════════════════ -->
+    @if (activeTab() === 'inventory' && inventoryReport(); as ir) {
+      <div class="report-content">
+        <div class="kpi-strip">
+          <div class="kpi">
+            <div class="kpi__value">{{ ir.itemsInStock }}</div>
+            <div class="kpi__label">Items in stock</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__value kpi__value--warning">{{ ir.itemsLowStock }}</div>
+            <div class="kpi__label">Low stock</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__value kpi__value--danger">{{ ir.itemsOutOfStock }}</div>
+            <div class="kpi__label">Out of stock</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__value kpi__value--primary">{{ formatPesoCompact(ir.estimatedStockValue) }}</div>
+            <div class="kpi__label">Stock value</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card panel panel--warning">
+            <div class="panel__header">
+              <div>
+                <h2 class="panel__title">Low stock alert</h2>
+                <p class="panel__subtitle">Fewer than 10 units remaining.</p>
+              </div>
+              <span class="panel__badge panel__badge--warning">{{ ir.itemsLowStock }}</span>
+            </div>
+
+            @if (ir.lowStockItems.length === 0) {
+              <div class="panel__empty">Nothing low on stock. Good job!</div>
+            } @else {
+              <div class="panel__scroll">
+                <table class="report-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Code</th>
+                      <th class="text-right">Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (i of ir.lowStockItems; track i.itemId) {
+                      <tr>
+                        <td class="cell-strong">{{ i.name }}</td>
+                        <td class="cell-mono">{{ i.code }}</td>
+                        <td class="text-right cell-price cell-warning">{{ i.stock }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+
+          <div class="card panel panel--danger">
+            <div class="panel__header">
+              <div>
+                <h2 class="panel__title">Out of stock</h2>
+                <p class="panel__subtitle">No units — cannot be distributed.</p>
+              </div>
+              <span class="panel__badge panel__badge--danger">{{ ir.itemsOutOfStock }}</span>
+            </div>
+
+            @if (ir.outOfStockItems.length === 0) {
+              <div class="panel__empty">Nothing is out of stock.</div>
+            } @else {
+              <div class="panel__scroll">
+                <table class="report-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Code</th>
+                      <th class="text-right">Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (i of ir.outOfStockItems; track i.itemId) {
+                      <tr>
+                        <td class="cell-strong">{{ i.name }}</td>
+                        <td class="cell-mono">{{ i.code }}</td>
+                        <td class="text-right cell-price cell-danger">{{ i.stock }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="card panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">Full inventory</h2>
+              <p class="panel__subtitle">Every catalog item with its derived stock.</p>
+            </div>
+            <span class="panel__badge">{{ ir.totalItems }} items</span>
+          </div>
+
+          <div class="panel__scroll panel__scroll--tall">
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Code</th>
+                  <th>Brand</th>
+                  <th class="text-right">In</th>
+                  <th class="text-right">Out</th>
+                  <th class="text-right">Stock</th>
+                  <th class="text-right">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (i of ir.allItems; track i.itemId) {
+                  <tr>
+                    <td class="cell-strong">{{ i.name }}</td>
+                    <td class="cell-mono">{{ i.code }}</td>
+                    <td class="cell-muted">{{ i.brand }}</td>
+                    <td class="text-right cell-muted">{{ i.totalIn }}</td>
+                    <td class="text-right cell-muted">{{ i.totalOut }}</td>
+                    <td class="text-right cell-price"
+                        [class.cell-danger]="i.stock <= 0"
+                        [class.cell-warning]="i.stock > 0 && i.stock < 10">
+                      {{ i.stock }}
+                    </td>
+                    <td class="text-right cell-muted">{{ formatPesoCompact(i.stock * i.unitPrice) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- ══════════════════ DISTRIBUTIONS ══════════════════ -->
+    @if (activeTab() === 'distributions' && distributionReport(); as dr) {
+      <div class="report-content">
+        <div class="kpi-strip">
+          <div class="kpi">
+            <div class="kpi__value">{{ dr.totalDistributions }}</div>
+            <div class="kpi__label">Total distributions</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__value kpi__value--accent">{{ dr.totalQuantityDistributed }}</div>
+            <div class="kpi__label">Items distributed</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__value kpi__value--primary">{{ dr.uniqueRecipients }}</div>
+            <div class="kpi__label">Unique recipients</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__value">{{ dr.averageItemsPerDistribution }}</div>
+            <div class="kpi__label">Average per distribution</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card panel">
+            <div class="panel__header">
+              <div>
+                <h2 class="panel__title">Monthly distributions</h2>
+                <p class="panel__subtitle">Items distributed per month.</p>
+              </div>
+            </div>
+
+            @if (dr.monthlyTrend.length === 0) {
+              <div class="panel__empty">No distributions recorded yet.</div>
+            } @else {
+              <div class="chart-bars">
+                @for (m of dr.monthlyTrend; track m.month) {
+                  <div class="chart-bar">
+                    <div class="chart-bar__value">{{ m.totalQuantity }}</div>
+                    <div class="chart-bar__track">
+                      <div class="chart-bar__fill chart-bar__fill--accent"
+                           [style.height.%]="(m.totalQuantity / activeDistributionTrendMax()) * 100"></div>
+                    </div>
+                    <div class="chart-bar__label">{{ m.monthLabel }}</div>
+                    <div class="chart-bar__sub">{{ m.count }} {{ m.count === 1 ? 'dist' : 'dists' }}</div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="card panel">
+            <div class="panel__header">
+              <div>
+                <h2 class="panel__title">Top recipients</h2>
+                <p class="panel__subtitle">By total items received.</p>
+              </div>
+            </div>
+
+            @if (dr.topRecipients.length === 0) {
+              <div class="panel__empty">No recipients yet.</div>
+            } @else {
+              <div class="panel__scroll">
+                <table class="report-table">
+                  <thead>
+                    <tr>
+                      <th>Recipient</th>
+                      <th class="text-right">Distributions</th>
+                      <th class="text-right">Items received</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (r of dr.topRecipients; track r.recipient) {
+                      <tr>
+                        <td class="cell-strong">{{ r.recipient }}</td>
+                        <td class="text-right">{{ r.distributionCount }}</td>
+                        <td class="text-right cell-price">{{ r.totalQuantity }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="card panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">Distributions by cause</h2>
+              <p class="panel__subtitle">Items distributed through each campaign.</p>
+            </div>
+          </div>
+
+          @if (dr.byCause.length === 0) {
+            <div class="panel__empty">No distributions recorded yet.</div>
+          } @else {
+            <ul class="bar-list">
+              @for (c of dr.byCause; track c.causeId) {
+                <li class="bar-row">
+                  <div class="bar-row__head">
+                    <div class="bar-row__name">
+                      {{ c.causeTitle }}
+                      <span class="bar-row__ngo">{{ c.ngoName }}</span>
+                    </div>
+                    <div class="bar-row__values">
+                      <span class="bar-row__count">{{ c.distributionCount }} {{ c.distributionCount === 1 ? 'distribution' : 'distributions' }}</span>
+                      <span class="bar-row__value">{{ c.totalQuantity }} items</span>
+                    </div>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- ══════════════════ CAUSE PROGRESS ══════════════════ -->
+    @if (activeTab() === 'causes') {
+      <div class="report-content">
+
+        <!-- Toolbar: search + status tabs + view toggle -->
+        <div class="toolbar">
+          <div class="toolbar__search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/>
+            </svg>
+            <input type="text"
+                   placeholder="Search by cause title or NGO..."
+                   [ngModel]="causeSearchQuery()"
+                   (ngModelChange)="onCauseSearch($event)" />
+            @if (causeSearchQuery()) {
+              <button class="toolbar__clear" (click)="onCauseSearch('')" aria-label="Clear">×</button>
+            }
+          </div>
+
+          <div class="view-toggle" role="group" aria-label="View mode">
+            <button class="view-toggle__btn"
+                    [class.view-toggle__btn--active]="causeViewMode() === 'list'"
+                    (click)="setCauseView('list')"
+                    title="List view">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                <line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+            </button>
+            <button class="view-toggle__btn"
+                    [class.view-toggle__btn--active]="causeViewMode() === 'grid'"
+                    (click)="setCauseView('grid')"
+                    title="Grid view">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <rect x="14" y="14" width="7" height="7" rx="1"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sub-tabs: status filter -->
+        <div class="subtabs">
+          @for (st of causeStatusTabs(); track st.key) {
+            <button class="subtab"
+                    [class.subtab--active]="causeStatusFilter() === st.key"
+                    (click)="setCauseStatus(st.key)">
+              {{ st.label }}
+              <span class="subtab__count">{{ st.count }}</span>
+            </button>
+          }
+
+          @if (hasCauseFilters()) {
+            <button class="subtab subtab--clear" (click)="clearCauseFilters()">
+              Clear filters
+            </button>
+          }
+        </div>
+
+        <div class="card panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">Cause progress</h2>
+              <p class="panel__subtitle">
+                {{ filteredCauses().length }}
+                {{ filteredCauses().length === 1 ? 'cause' : 'causes' }}
+                @if (causeStatusFilter() !== 'all') { · {{ causeStatusFilter() }} }
+                @if (causeSearchQuery()) { · matching "{{ causeSearchQuery() }}" }
+              </p>
+            </div>
+          </div>
+
+          @if (filteredCauses().length === 0) {
+            <div class="panel__empty">
+              @if (hasCauseFilters()) {
+                No causes match these filters.
+              } @else {
+                No causes yet.
+              }
+            </div>
+          } @else if (causeViewMode() === 'list') {
+            <!-- ─── LIST VIEW ─── -->
+            <div class="cause-progress-list">
+              @for (c of filteredCauses(); track c.causeId) {
+                <div class="cause-progress">
+                  <div class="cause-progress__head">
+                    <div>
+                      <div class="cause-progress__title">{{ c.title }}</div>
+                      <div class="cause-progress__ngo">{{ c.ngoName }}</div>
+                    </div>
+                    <span class="status-pill" [attr.data-status]="c.status.toLowerCase()">{{ c.status }}</span>
+                  </div>
+
+                  <div class="cause-progress__amounts">
+                    <span class="cause-progress__raised">{{ formatPesoCompact(c.raisedAmount) }}</span>
+                    <span class="cause-progress__goal">of {{ formatPesoCompact(c.goalAmount) }} goal</span>
+                    <span class="cause-progress__pct">{{ formatPercent(c.percentComplete) }}</span>
+                  </div>
+
+                  <div class="cause-progress__track">
+                    <div class="cause-progress__fill"
+                         [class]="progressClass(c.percentComplete)"
+                         [style.width.%]="c.percentComplete > 100 ? 100 : c.percentComplete"></div>
+                  </div>
+
+                  <div class="cause-progress__meta">
+                    <span>{{ c.donationCount }} {{ c.donationCount === 1 ? 'donation' : 'donations' }}</span>
+                    <span>·</span>
+                    <span>{{ c.distributionCount }} {{ c.distributionCount === 1 ? 'distribution' : 'distributions' }}</span>
+                    <span>·</span>
+                    <span [class]="deadlineClass(c.daysRemaining)">{{ deadlineLabel(c.daysRemaining) }}</span>
+                    <span>·</span>
+                    <span>Deadline {{ formatDate(c.deadline) }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <!-- ─── GRID VIEW ─── -->
+            <div class="cause-grid">
+              @for (c of filteredCauses(); track c.causeId) {
+                <article class="cause-tile">
+                  <div class="cause-tile__head">
+                    <div class="cause-tile__title">{{ c.title }}</div>
+                    <span class="status-pill" [attr.data-status]="c.status.toLowerCase()">{{ c.status }}</span>
+                  </div>
+
+                  <div class="cause-tile__ngo">{{ c.ngoName }}</div>
+
+                  <div class="cause-tile__amount">
+                    <span class="cause-tile__raised">{{ formatPesoCompact(c.raisedAmount) }}</span>
+                    <span class="cause-tile__pct">{{ formatPercent(c.percentComplete) }}</span>
+                  </div>
+
+                  <div class="cause-tile__goal">
+                    of {{ formatPesoCompact(c.goalAmount) }} goal
+                  </div>
+
+                  <div class="cause-progress__track">
+                    <div class="cause-progress__fill"
+                         [class]="progressClass(c.percentComplete)"
+                         [style.width.%]="c.percentComplete > 100 ? 100 : c.percentComplete"></div>
+                  </div>
+
+                  <div class="cause-tile__meta">
+                    <span>{{ c.donationCount }} {{ c.donationCount === 1 ? 'donation' : 'donations' }}</span>
+                    <span>·</span>
+                    <span>{{ c.distributionCount }} {{ c.distributionCount === 1 ? 'distribution' : 'distributions' }}</span>
+                  </div>
+
+                  <div class="cause-tile__deadline" [class]="deadlineClass(c.daysRemaining)">
+                    {{ deadlineLabel(c.daysRemaining) }}
+                  </div>
+                </article>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+  }
+
+</div>

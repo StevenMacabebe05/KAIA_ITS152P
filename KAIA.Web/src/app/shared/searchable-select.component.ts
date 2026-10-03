@@ -1,5 +1,5 @@
 import {
-  Component, ElementRef, Input,
+  Component, ElementRef, EventEmitter, Input, NgZone, Output,
   computed, forwardRef, inject, signal, viewChild, HostListener
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -26,11 +26,11 @@ export interface SearchableOption {
   template: `
     <div class="ss" [class.ss--open]="open()">
       <div class="ss__trigger" (click)="toggle($event)">
-        @if (selected(); as sel) {
+        @if (selectedLabel()) {
           <div class="ss__selected">
-            <div class="ss__selected-label">{{ sel.label }}</div>
-            @if (sel.sublabel) {
-              <div class="ss__selected-sub">{{ sel.sublabel }}</div>
+            <div class="ss__selected-label">{{ selectedLabel() }}</div>
+            @if (selectedSublabel()) {
+              <div class="ss__selected-sub">{{ selectedSublabel() }}</div>
             }
           </div>
         } @else {
@@ -66,8 +66,8 @@ export interface SearchableOption {
               @for (opt of filtered(); track opt.value; let i = $index) {
                 <div class="ss__item"
                      [class.ss__item--active]="i === highlightIndex()"
-                     [class.ss__item--selected]="selected()?.value === opt.value"
-                     (click)="pick(opt, $event)"
+                     [class.ss__item--selected]="opt.value === value()"
+                     (click)="select(opt, $event)"
                      (mouseenter)="highlightIndex.set(i)">
                   <div class="ss__item-body">
                     <div class="ss__item-label">{{ opt.label }}</div>
@@ -242,25 +242,29 @@ export class SearchableSelectComponent implements ControlValueAccessor {
   @Input() options: SearchableOption[] = [];
   @Input() placeholder = 'Select...';
 
-  private readonly host = inject(ElementRef<HTMLElement>);
+  /** Emitted every time the user picks an option — mirrors the CVA change. */
+  @Output() valueChange = new EventEmitter<number>();
+
+  private readonly host        = inject(ElementRef<HTMLElement>);
+  private readonly zone        = inject(NgZone);
   private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
 
   readonly open           = signal(false);
   readonly query          = signal('');
+  readonly value          = signal<number>(0);
   readonly highlightIndex = signal(0);
 
-  /**
-   * Selected option object. This is the SINGLE source of truth for the
-   * trigger's display. It's set directly by `pick()` and by `writeValue()`.
-   */
-  readonly selected = signal<SearchableOption | null>(null);
+  readonly selectedOption = computed(() =>
+    this.options.find(o => o.value === this.value()) ?? null
+  );
 
-  /** Filtered list — recomputes whenever `options` or `query` changes. */
+  readonly selectedLabel    = computed(() => this.selectedOption()?.label ?? '');
+  readonly selectedSublabel = computed(() => this.selectedOption()?.sublabel ?? '');
+
   readonly filtered = computed(() => {
     const q = this.query().trim().toLowerCase();
-    const opts = this.options;
-    if (!q) return opts;
-    return opts.filter(o =>
+    if (!q) return this.options;
+    return this.options.filter(o =>
       o.label.toLowerCase().includes(q) ||
       (o.sublabel ?? '').toLowerCase().includes(q) ||
       (o.meta ?? '').toLowerCase().includes(q)
@@ -272,9 +276,7 @@ export class SearchableSelectComponent implements ControlValueAccessor {
 
   // ─── ControlValueAccessor ──────────────────────────────────────────
   writeValue(v: number | null): void {
-    const id = v ?? 0;
-    const match = this.options.find(o => o.value === id) ?? null;
-    this.selected.set(match);
+    this.value.set(v ?? 0);
   }
 
   registerOnChange(fn: (v: number) => void): void { this.onChange = fn; }
@@ -312,19 +314,23 @@ export class SearchableSelectComponent implements ControlValueAccessor {
     } else if (event.key === 'Enter') {
       event.preventDefault();
       const opt = list[this.highlightIndex()];
-      if (opt) this.pick(opt, event);
+      if (opt) this.select(opt, event);
     } else if (event.key === 'Escape') {
       event.preventDefault();
       this.close();
     }
   }
 
-  pick(opt: SearchableOption, event: Event): void {
+  select(opt: SearchableOption, event: Event): void {
     event.stopPropagation();
-    this.selected.set(opt);
-    this.onChange(opt.value);
-    this.onTouched();
-    this.open.set(false);
+
+    this.zone.run(() => {
+      this.value.set(opt.value);
+      this.onChange(opt.value);
+      this.valueChange.emit(opt.value);
+      this.onTouched();
+      this.open.set(false);
+    });
   }
 
   @HostListener('document:click', ['$event'])

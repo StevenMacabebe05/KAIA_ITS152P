@@ -46,7 +46,8 @@ interface LineDraft { itemId: number; quantity: number; }
                 <app-searchable-select
                   formControlName="donorId"
                   placeholder="Select a donor..."
-                  [options]="donorOptions()" />
+                  [options]="donorOptions()"
+                  (valueChange)="syncLineState()" />
                 @if (hasError('donorId')) {
                   <div class="field__error">Select a donor.</div>
                 }
@@ -57,7 +58,8 @@ interface LineDraft { itemId: number; quantity: number; }
                 <app-searchable-select
                   formControlName="causeId"
                   placeholder="Select a cause..."
-                  [options]="causeOptions()" />
+                  [options]="causeOptions()"
+                  (valueChange)="syncLineState()" />
                 @if (hasError('causeId')) {
                   <div class="field__error">Select a cause.</div>
                 }
@@ -104,7 +106,8 @@ interface LineDraft { itemId: number; quantity: number; }
                         <app-searchable-select
                           formControlName="itemId"
                           placeholder="Search item..."
-                          [options]="itemOptions()" />
+                          [options]="itemOptions()"
+                          (valueChange)="syncLineState()" />
                       </div>
 
                       <div class="line__qty">
@@ -113,7 +116,7 @@ interface LineDraft { itemId: number; quantity: number; }
                                min="1"
                                step="1"
                                formControlName="quantity"
-                               (input)="onQuantityChange()" />
+                               (input)="syncLineState()" />
                       </div>
 
                       <div class="line__sub">
@@ -380,6 +383,9 @@ export class DonationFormModalComponent implements OnInit {
   readonly causes = signal<Cause[]>([]);
   readonly items  = signal<Item[]>([]);
 
+  /** Bumped on any line change so the computed totals re-run. */
+  private readonly linesVersion = signal(0);
+
   readonly donorOptions = computed<SearchableOption[]>(() =>
     this.donors().map(d => ({
       value: d.id,
@@ -418,7 +424,14 @@ export class DonationFormModalComponent implements OnInit {
     return this.form.get('lines') as FormArray;
   }
 
-  readonly grandTotal = signal<number>(0);
+  readonly grandTotal = computed(() => {
+    this.linesVersion();
+    let total = 0;
+    for (let i = 0; i < this.linesArray.length; i++) {
+      total += this.lineSubtotal(i);
+    }
+    return total;
+  });
 
   ngOnInit(): void {
     forkJoin({
@@ -443,8 +456,7 @@ export class DonationFormModalComponent implements OnInit {
           for (const line of this.donation.lines) {
             this.linesArray.push(this.makeLineGroup(line.itemId, line.quantity));
           }
-
-          this.recomputeTotal();
+          this.syncLineState();
         } else {
           this.form.patchValue({ donatedAt: new Date().toISOString().substring(0, 10) });
           this.addLine();
@@ -473,15 +485,18 @@ export class DonationFormModalComponent implements OnInit {
 
   addLine(): void {
     this.linesArray.push(this.makeLineGroup());
-    this.recomputeTotal();
+    this.syncLineState();
   }
 
   removeLine(index: number): void {
     this.linesArray.removeAt(index);
-    this.recomputeTotal();
+    this.syncLineState();
   }
 
-  onQuantityChange(): void { this.recomputeTotal(); }
+  /** Bumps the version signal so computed totals recalculate. */
+  syncLineState(): void {
+    this.linesVersion.update(v => v + 1);
+  }
 
   lineSubtotal(index: number): number {
     const line = this.linesArray.at(index);
@@ -490,14 +505,6 @@ export class DonationFormModalComponent implements OnInit {
     const quantity = Number(line.get('quantity')?.value ?? 0);
     const item = this.items().find(i => i.id === itemId);
     return item ? item.unitPrice * quantity : 0;
-  }
-
-  private recomputeTotal(): void {
-    let total = 0;
-    for (let i = 0; i < this.linesArray.length; i++) {
-      total += this.lineSubtotal(i);
-    }
-    this.grandTotal.set(total);
   }
 
   hasError(field: 'donorId' | 'causeId' | 'donatedAt' | 'notes'): boolean {

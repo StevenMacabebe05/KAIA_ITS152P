@@ -1,63 +1,50 @@
 import {
-  Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal
+  Component, OnDestroy, OnInit, computed, inject, signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { toPng } from 'html-to-image';
 import { ItemApiService, ApiError } from '../../core/services/item-api.service';
+import { ReportApiService } from '../../core/services/report-api.service';
 import { Item } from '../../core/models/item.model';
 import { CountUpDirective } from '../../core/directives/count-up.directive';
+import {
+  DonationReport,
+  InventoryReport,
+  DistributionReport,
+  CauseProgress
+} from '../../core/models/report.model';
 
-// ─── Interfaces ──────────────────────────────────────────────────────
+interface HeroSlide {
+  image: string;
+  alt: string;
+}
+
 interface CategoryStat {
   prefix: string;
   label: string;
   color: string;
-  colorDark: string;     
   count: number;
   totalValue: number;
   percentOfTotal: number;
   donutDash: string;
   donutOffset: number;
 }
+
 interface BrandStat {
-  brand: string; count: number; totalValue: number;
+  brand: string;
+  count: number;
+  totalValue: number;
 }
 
 interface ChartData {
-  linePath: string; areaPath: string; maxValue: number;
+  linePath: string;
+  areaPath: string;
+  maxValue: number;
   xLabels: { x: number; text: string }[];
   yLabels: { y: number; text: string }[];
   lastPoint: { x: number; y: number };
   hasData: boolean;
-}
-
-interface WeeklyBucket {
-  weekStartMs: number;
-  label: string;
-  count: number;
-  percentOfMax: number;
-}
-
-interface CategorySparkline {
-  prefix: string; label: string; color: string;
-  path: string; lastValue: number;
-}
-
-interface ImpactItem {
-  icon: 'heart' | 'utensils' | 'shield' | 'book';
-  headline: string;
-  sub: string;
-}
-
-interface Trend {
-  direction: 'up' | 'down' | 'flat' | 'new';
-  percent: number;
-}
-
-interface HeroSlide {
-  image: string;
-  alt: string;
 }
 
 const CATEGORY_META: Record<string, { label: string; color: string }> = {
@@ -69,227 +56,72 @@ const CATEGORY_META: Record<string, { label: string; color: string }> = {
   OT: { label: 'Other',     color: '#E91E8C' }
 };
 
-const DAY  = 24 * 60 * 60 * 1000;
-const WEEK = 7 * DAY;
-
-const HERO_SLIDE_DURATION_MS = 5000;
-
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink,CountUpDirective],
+  imports: [CommonModule, RouterLink, CountUpDirective],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  private readonly api = inject(ItemApiService);
-
-  @ViewChild('dashboardRoot', { static: false })
-  dashboardRoot?: ElementRef<HTMLDivElement>;
-
-  readonly items     = signal<Item[]>([]);
-  readonly loading   = signal(true);
-  readonly error     = signal<string | null>(null);
-  readonly exporting = signal(false);
+  private readonly api    = inject(ItemApiService);
+  private readonly report = inject(ReportApiService);
 
   // ─── Hero carousel ─────────────────────────────────────────────────
-  /** Add or reorder slides here. Files live in KAIA.Web/public/hero/. */
   readonly heroSlides: HeroSlide[] = [
-    { image: 'hero/hero-1.jpg', alt: 'Volunteers packing relief goods' },
-    { image: 'hero/hero-2.jpg', alt: 'Community outreach' },
-    { image: 'hero/hero-3.jpg', alt: 'School supplies distribution' }
+    { image: 'hero/hero-1.jpg', alt: 'KAIA community' },
+    { image: 'hero/hero-2.jpg', alt: 'KAIA volunteers' },
+    { image: 'hero/hero-3.jpg', alt: 'KAIA donation drive' }
   ];
 
   readonly heroIndex = signal(0);
   private heroTimer: any = null;
 
-  // ─── Headline metrics ──────────────────────────────────────────────
+  // ─── Data signals ──────────────────────────────────────────────────
+  readonly items   = signal<Item[]>([]);
+  readonly loading = signal(true);
+  readonly error   = signal<string | null>(null);
+  readonly exporting = signal(false);
+
+  readonly donationReport     = signal<DonationReport | null>(null);
+  readonly inventoryReport    = signal<InventoryReport | null>(null);
+  readonly distributionReport = signal<DistributionReport | null>(null);
+  readonly causeProgress      = signal<CauseProgress[]>([]);
+
+  // ─── Catalog KPIs ──────────────────────────────────────────────────
   readonly totalItems    = computed(() => this.items().length);
   readonly totalValue    = computed(() => this.items().reduce((s, i) => s + i.unitPrice, 0));
   readonly categoryCount = computed(() => new Set(this.items().map(i => i.category)).size);
   readonly brandCount    = computed(() => new Set(this.items().map(i => i.brand)).size);
-
   readonly addedThisWeek = computed(() => {
-    const cutoff = Date.now() - 7 * DAY;
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     return this.items().filter(i => new Date(i.createdAtUtc).getTime() >= cutoff).length;
   });
 
-  readonly lastUpdated = computed(() => {
-    if (this.items().length === 0) return '—';
-    const max = Math.max(...this.items().map(i => new Date(i.createdAtUtc).getTime()));
-    return new Date(max).toLocaleDateString('en-PH', {
-      year: 'numeric', month: 'short', day: 'numeric'
-    });
-  });
+  // ─── Transaction KPIs ──────────────────────────────────────────────
+  readonly totalDonations     = computed(() => this.donationReport()?.totalDonations ?? 0);
+  readonly totalValueReceived = computed(() => this.donationReport()?.totalValue ?? 0);
+  readonly totalDistributions = computed(() => this.distributionReport()?.totalDistributions ?? 0);
+  readonly uniqueRecipients   = computed(() => this.distributionReport()?.uniqueRecipients ?? 0);
 
-  // ─── Trends ────────────────────────────────────────────────────────
-  readonly itemsTrend = computed<Trend>(() => {
-    const now = Date.now();
-    const curr = this.items().filter(i => new Date(i.createdAtUtc).getTime() >= now - 30 * DAY).length;
-    const prev = this.items().filter(i => {
-      const t = new Date(i.createdAtUtc).getTime();
-      return t >= now - 60 * DAY && t < now - 30 * DAY;
-    }).length;
-    return this.computeTrend(curr, prev);
-  });
+  // ─── Inventory health ──────────────────────────────────────────────
+  readonly lowStockCount   = computed(() => this.inventoryReport()?.itemsLowStock ?? 0);
+  readonly outOfStockCount = computed(() => this.inventoryReport()?.itemsOutOfStock ?? 0);
+  readonly stockValue      = computed(() => this.inventoryReport()?.estimatedStockValue ?? 0);
 
-  readonly valueTrend = computed<Trend>(() => {
-    const now = Date.now();
-    const curr = this.items()
-      .filter(i => new Date(i.createdAtUtc).getTime() >= now - 30 * DAY)
-      .reduce((s, i) => s + i.unitPrice, 0);
-    const prev = this.items()
-      .filter(i => {
-        const t = new Date(i.createdAtUtc).getTime();
-        return t >= now - 60 * DAY && t < now - 30 * DAY;
-      })
-      .reduce((s, i) => s + i.unitPrice, 0);
-    return this.computeTrend(curr, prev);
-  });
+  readonly topLowStockItems = computed(() =>
+    (this.inventoryReport()?.lowStockItems ?? []).slice(0, 4)
+  );
 
-  readonly categoriesTrend = computed<Trend>(() => {
-    const now = Date.now();
-    const curr = new Set(
-      this.items()
-        .filter(i => new Date(i.createdAtUtc).getTime() >= now - 30 * DAY)
-        .map(i => i.category)
-    ).size;
-    const prev = new Set(
-      this.items()
-        .filter(i => {
-          const t = new Date(i.createdAtUtc).getTime();
-          return t >= now - 60 * DAY && t < now - 30 * DAY;
-        })
-        .map(i => i.category)
-    ).size;
-    return this.computeTrend(curr, prev);
-  });
+  // ─── Cause progress ────────────────────────────────────────────────
+  readonly topCauses = computed(() =>
+    [...this.causeProgress()]
+      .filter(c => c.status === 'Active')
+      .sort((a, b) => b.percentComplete - a.percentComplete)
+      .slice(0, 5)
+  );
 
-  readonly weekTrend = computed<Trend>(() => {
-    const now = Date.now();
-    const curr = this.items().filter(i => new Date(i.createdAtUtc).getTime() >= now - 7 * DAY).length;
-    const prev = this.items().filter(i => {
-      const t = new Date(i.createdAtUtc).getTime();
-      return t >= now - 14 * DAY && t < now - 7 * DAY;
-    }).length;
-    return this.computeTrend(curr, prev);
-  });
-
-  private computeTrend(current: number, previous: number): Trend {
-    if (previous === 0 && current === 0) return { direction: 'flat', percent: 0 };
-    if (previous === 0) return { direction: 'new', percent: 100 };
-    const delta = ((current - previous) / previous) * 100;
-    if (Math.abs(delta) < 1) return { direction: 'flat', percent: 0 };
-    return { direction: delta > 0 ? 'up' : 'down', percent: Math.abs(delta) };
-  }
-
-  // ─── Weekly buckets ────────────────────────────────────────────────
-  readonly weeklyBuckets = computed<WeeklyBucket[]>(() => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dow = today.getDay() || 7;
-    const monday = new Date(today.getTime() - (dow - 1) * DAY);
-
-    const buckets: { weekStartMs: number; count: number }[] = [];
-    for (let i = 7; i >= 0; i--) {
-      buckets.push({ weekStartMs: monday.getTime() - i * WEEK, count: 0 });
-    }
-
-    for (const item of this.items()) {
-      const t = new Date(item.createdAtUtc).getTime();
-      for (let i = buckets.length - 1; i >= 0; i--) {
-        if (t >= buckets[i].weekStartMs) { buckets[i].count++; break; }
-      }
-    }
-
-    const max = Math.max(...buckets.map(b => b.count), 1);
-    return buckets.map(b => ({
-      weekStartMs: b.weekStartMs,
-      label: new Date(b.weekStartMs).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }),
-      count: b.count,
-      percentOfMax: (b.count / max) * 100
-    }));
-  });
-
-  // ─── Category sparklines ──────────────────────────────────────────
-  readonly categorySparklines = computed<CategorySparkline[]>(() => {
-    const cats = Array.from(new Set(this.items().map(i => i.category))).sort();
-    if (cats.length === 0) return [];
-
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dow = today.getDay() || 7;
-    const monday = new Date(today.getTime() - (dow - 1) * DAY);
-    const WEEKS = 8;
-
-    const series = cats.map(prefix => ({
-      prefix,
-      points: new Array(WEEKS).fill(0) as number[]
-    }));
-
-    for (const item of this.items()) {
-      const t = new Date(item.createdAtUtc).getTime();
-      const weeksAgo = Math.floor((monday.getTime() - t) / WEEK);
-      const idx = WEEKS - 1 - weeksAgo;
-      if (idx >= 0 && idx < WEEKS) {
-        const s = series.find(x => x.prefix === item.category);
-        if (s) s.points[idx]++;
-      }
-    }
-
-    for (const s of series) {
-      for (let i = 1; i < WEEKS; i++) s.points[i] += s.points[i - 1];
-    }
-
-    const globalMax = Math.max(...series.flatMap(s => s.points), 1);
-    const W = 100, H = 28, PAD = 2;
-    const xStep = (W - 2 * PAD) / (WEEKS - 1);
-    const yScale = (H - 2 * PAD) / globalMax;
-
-    return series.map(s => {
-      const pts = s.points.map((v, i) => ({
-        x: PAD + i * xStep,
-        y: H - PAD - v * yScale
-      }));
-      const path = pts.map((p, i) =>
-        `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`
-      ).join(' ');
-
-      return {
-        prefix: s.prefix,
-        label: CATEGORY_META[s.prefix]?.label ?? s.prefix,
-        color: CATEGORY_META[s.prefix]?.color ?? '#E91E8C',
-        path,
-        lastValue: s.points[s.points.length - 1]
-      };
-    });
-  });
-
-  getSparkline(prefix: string): CategorySparkline | null {
-    return this.categorySparklines().find(s => s.prefix === prefix) ?? null;
-  }
-
-  // ─── Impact strip ─────────────────────────────────────────────────
-  readonly impactStrip = computed<ImpactItem[]>(() => {
-    const list = this.items();
-    if (list.length === 0) return [];
-
-    const total = this.totalValue();
-    const reliefPackCost = 500;
-    const reliefPacks = Math.floor(total / reliefPackCost);
-    const meals = Math.floor(total / 50);
-    const hygieneCount = list.filter(i => i.category === 'HY').length;
-    const educationCount = list.filter(i => i.category === 'ED').length;
-
-    return [
-      { icon: 'heart',    headline: `≈ ${reliefPacks.toLocaleString()} relief packs`, sub: `at ₱${reliefPackCost} per pack` },
-      { icon: 'utensils', headline: `≈ ${meals.toLocaleString()} meals`,             sub: 'at ₱50 per meal' },
-      { icon: 'shield',   headline: `${hygieneCount} hygiene suppl${hygieneCount === 1 ? 'y' : 'ies'}`, sub: 'ready to distribute' },
-      { icon: 'book',     headline: `${educationCount} education item${educationCount === 1 ? '' : 's'}`, sub: 'for students & schools' }
-    ];
-  });
-
-  // ─── Donut categories ──────────────────────────────────────────────
+  // ─── Categories + donut ────────────────────────────────────────────
   readonly categories = computed<CategoryStat[]>(() => {
     const map = new Map<string, { count: number; totalValue: number }>();
     for (const item of this.items()) {
@@ -300,18 +132,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     const total = this.totalValue() || 1;
     const sorted = Array.from(map.entries())
-      .map(([prefix, { count, totalValue }]) => {
-        const base = CATEGORY_META[prefix]?.color ?? '#E91E8C';
-        return {
-          prefix,
-          label: CATEGORY_META[prefix]?.label ?? prefix,
-          color: base,
-          colorDark: this.darkenHex(base, 0.72),
-          count,
-          totalValue,
-          percentOfTotal: (totalValue / total) * 100
-        };
-      })
+      .map(([prefix, { count, totalValue }]) => ({
+        prefix,
+        label: CATEGORY_META[prefix]?.label ?? prefix,
+        color: CATEGORY_META[prefix]?.color ?? '#E91E8C',
+        count,
+        totalValue,
+        percentOfTotal: (totalValue / total) * 100
+      }))
       .sort((a, b) => b.totalValue - a.totalValue);
 
     const CIRC = 226.19;
@@ -324,6 +152,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   });
 
+  // ─── Top brands ────────────────────────────────────────────────────
   readonly topBrands = computed<BrandStat[]>(() => {
     const map = new Map<string, { count: number; totalValue: number }>();
     for (const item of this.items()) {
@@ -337,28 +166,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .slice(0, 5);
   });
 
+  // ─── Top 5 items ───────────────────────────────────────────────────
   readonly topItems = computed<Item[]>(() =>
     [...this.items()].sort((a, b) => b.unitPrice - a.unitPrice).slice(0, 5)
   );
 
-  // ─── Cumulative area chart ─────────────────────────────────────────
+  // ─── Cumulative value chart ────────────────────────────────────────
   readonly chart = computed<ChartData>(() => {
     const empty: ChartData = {
       linePath: '', areaPath: '', maxValue: 0,
       xLabels: [], yLabels: [], lastPoint: { x: 0, y: 0 }, hasData: false
     };
-    const list = [...this.items()].sort((a, b) =>
+
+    const items = [...this.items()].sort((a, b) =>
       new Date(a.createdAtUtc).getTime() - new Date(b.createdAtUtc).getTime());
-    if (list.length < 2) return empty;
+
+    if (items.length < 2) return empty;
 
     let cum = 0;
-    const points = list.map(i => {
+    const points = items.map(i => {
       cum += i.unitPrice;
       return { t: new Date(i.createdAtUtc).getTime(), v: cum };
     });
 
     const W = 900, H = 260, PAD_X = 48, PAD_Y = 32;
-    const max = cum || 1;
+
+    const sorted = points.map(p => p.v).sort((a, b) => a - b);
+    const p95Index = Math.floor(sorted.length * 0.95);
+    const p95 = sorted[Math.min(p95Index, sorted.length - 1)];
+    const max = Math.max(p95, cum * 0.15) || 1;
+
     const xMin = points[0].t;
     const xMax = points[points.length - 1].t;
     const xRange = xMax - xMin || 1;
@@ -407,67 +244,72 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // ─── Lifecycle ─────────────────────────────────────────────────────
   ngOnInit(): void {
-    this.loadItems();
-    this.startHeroCarousel();
+    this.loadAll();
+    this.startHeroRotation();
   }
 
   ngOnDestroy(): void {
-    this.stopHeroCarousel();
+    if (this.heroTimer) clearInterval(this.heroTimer);
   }
 
-  // ─── Hero carousel logic ───────────────────────────────────────────
-  startHeroCarousel(): void {
-    this.stopHeroCarousel();
-    this.heroTimer = setInterval(() => {
-      this.heroIndex.update(i => (i + 1) % this.heroSlides.length);
-    }, HERO_SLIDE_DURATION_MS);
-  }
-
-  stopHeroCarousel(): void {
-    if (this.heroTimer) {
-      clearInterval(this.heroTimer);
-      this.heroTimer = null;
-    }
-  }
-
-  setHeroSlide(index: number): void {
-    this.heroIndex.set(index);
-    this.startHeroCarousel();
-  }
-
-  loadItems(): void {
+  loadAll(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.api.getAll().subscribe({
-      next: items => { this.items.set(items); this.loading.set(false); },
-      error: (err: ApiError) => {
-        this.error.set(err.detail || 'Could not load items.');
-        this.loading.set(false);
-      }
+
+    Promise.all([
+      this.api.getAll().toPromise(),
+      this.report.donations().toPromise(),
+      this.report.inventory().toPromise(),
+      this.report.distributions().toPromise(),
+      this.report.causes().toPromise()
+    ]).then(([items, don, inv, dist, causes]) => {
+      this.items.set(items ?? []);
+      this.donationReport.set(don ?? null);
+      this.inventoryReport.set(inv ?? null);
+      this.distributionReport.set(dist ?? null);
+      this.causeProgress.set(causes ?? []);
+      this.loading.set(false);
+    }).catch((err: ApiError) => {
+      this.error.set(err.detail || err.message || 'Could not load dashboard.');
+      this.loading.set(false);
     });
+  }
+
+  // ─── Hero ──────────────────────────────────────────────────────────
+  private startHeroRotation(): void {
+    if (this.heroTimer) clearInterval(this.heroTimer);
+    this.heroTimer = setInterval(() => {
+      this.heroIndex.update(i => (i + 1) % this.heroSlides.length);
+    }, 5500);
+  }
+
+  setHeroSlide(i: number): void {
+    this.heroIndex.set(i);
+    this.startHeroRotation();
   }
 
   // ─── Export PNG ────────────────────────────────────────────────────
   async exportAsPng(): Promise<void> {
-    const el = this.dashboardRoot?.nativeElement;
+    const el = document.querySelector('.dashboard-content') as HTMLElement;
     if (!el) return;
 
     this.exporting.set(true);
-    try {
-      await new Promise(r => setTimeout(r, 120));
 
+    try {
+      const bg = getComputedStyle(document.body).backgroundColor || '#ffffff';
       const dataUrl = await toPng(el, {
-        backgroundColor: '#F8FAFC',
         pixelRatio: 2,
-        cacheBust: true
+        cacheBust: true,
+        backgroundColor: bg
       });
 
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
       const link = document.createElement('a');
-      link.download = `KAIA-dashboard-${new Date().toISOString().slice(0, 10)}.png`;
+      link.download = `kaia-dashboard-${stamp}.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
-      console.error('PNG export failed', err);
+      console.error('Export failed', err);
     } finally {
       this.exporting.set(false);
     }
@@ -482,21 +324,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return '₱' + v.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   }
 
-  formatPercent(v: number): string { return v.toFixed(1) + '%'; }
-
-  trendLabel(t: Trend): string {
-    if (t.direction === 'new')  return 'New';
-    if (t.direction === 'flat') return 'Flat';
-    return `${t.direction === 'up' ? '↑' : '↓'} ${t.percent.toFixed(0)}%`;
+  formatPercent(v: number): string {
+    return v.toFixed(1) + '%';
   }
-    /** Returns a darker version of a hex color by scaling each RGB channel. */
-  private darkenHex(hex: string, factor: number): string {
-    const c = hex.replace('#', '');
-    const r = Math.max(0, Math.round(parseInt(c.substring(0, 2), 16) * factor));
-    const g = Math.max(0, Math.round(parseInt(c.substring(2, 4), 16) * factor));
-    const b = Math.max(0, Math.round(parseInt(c.substring(4, 6), 16) * factor));
-    return '#' + [r, g, b]
-      .map(x => x.toString(16).padStart(2, '0'))
-      .join('');
+
+  progressClass(pct: number): string {
+    if (pct >= 100) return 'cause-progress__fill--complete';
+    if (pct >= 60) return 'cause-progress__fill--good';
+    if (pct >= 25) return 'cause-progress__fill--mid';
+    return 'cause-progress__fill--low';
+  }
+
+  deadlineClass(days: number): string {
+    if (days < 0) return 'deadline--past';
+    if (days <= 7) return 'deadline--soon';
+    return 'deadline--ok';
+  }
+
+  deadlineLabel(days: number): string {
+    if (days < 0) return `${Math.abs(days)}d overdue`;
+    if (days === 0) return 'Due today';
+    if (days === 1) return '1 day left';
+    return `${days} days left`;
   }
 }

@@ -37,7 +37,7 @@ interface LineDraft { itemId: number; quantity: number; }
         <form [formGroup]="form" (ngSubmit)="submit()" class="modal__body">
           <div class="grid">
 
-            <!-- LEFT: Distribution details -->
+            <!-- LEFT -->
             <div class="col col--left">
               <div class="col__title">Distribution details</div>
 
@@ -46,7 +46,8 @@ interface LineDraft { itemId: number; quantity: number; }
                 <app-searchable-select
                   formControlName="causeId"
                   placeholder="Select a cause..."
-                  [options]="causeOptions()" />
+                  [options]="causeOptions()"
+                  (valueChange)="syncLineState()" />
                 @if (hasError('causeId')) {
                   <div class="field__error">Select a cause.</div>
                 }
@@ -78,7 +79,7 @@ interface LineDraft { itemId: number; quantity: number; }
               </div>
             </div>
 
-            <!-- RIGHT: Items distributed -->
+            <!-- RIGHT -->
             <div class="col col--right">
               <div class="col__head">
                 <div class="col__title">Items distributed</div>
@@ -106,7 +107,8 @@ interface LineDraft { itemId: number; quantity: number; }
                         <app-searchable-select
                           formControlName="itemId"
                           placeholder="Search item..."
-                          [options]="itemOptions()" />
+                          [options]="itemOptions()"
+                          (valueChange)="syncLineState()" />
                         @if (availableStock(i) !== null) {
                           <div class="line__stock"
                                [class.line__stock--warn]="isOverStock(i)">
@@ -121,7 +123,7 @@ interface LineDraft { itemId: number; quantity: number; }
                                min="1"
                                step="1"
                                formControlName="quantity"
-                               (input)="onQuantityChange()"
+                               (input)="syncLineState()"
                                [class.field__input--error]="isOverStock(i)" />
                       </div>
 
@@ -377,10 +379,10 @@ export class DistributionFormModalComponent implements OnInit {
   @Output() closed = new EventEmitter<void>();
   @Output() saved  = new EventEmitter<Distribution>();
 
-  private readonly fb          = inject(FormBuilder);
-  private readonly api         = inject(DistributionApiService);
-  private readonly causeApi    = inject(CauseApiService);
-  private readonly itemApi     = inject(ItemApiService);
+  private readonly fb           = inject(FormBuilder);
+  private readonly api          = inject(DistributionApiService);
+  private readonly causeApi     = inject(CauseApiService);
+  private readonly itemApi      = inject(ItemApiService);
   private readonly inventoryApi = inject(InventoryApiService);
 
   readonly isEdit      = signal(false);
@@ -390,6 +392,12 @@ export class DistributionFormModalComponent implements OnInit {
   readonly causes    = signal<Cause[]>([]);
   readonly items     = signal<Item[]>([]);
   readonly inventory = signal<InventoryItem[]>([]);
+
+  readonly selectedCauseId = signal<number>(0);
+  readonly selectedItemIds = signal<number[]>([]);
+
+  /** Bumped on any line change so the computed values below re-run. */
+  private readonly linesVersion = signal(0);
 
   readonly causeOptions = computed<SearchableOption[]>(() =>
     this.causes().map(c => ({
@@ -426,6 +434,7 @@ export class DistributionFormModalComponent implements OnInit {
   }
 
   readonly totalQuantity = computed(() => {
+    this.linesVersion();
     let total = 0;
     for (const ctrl of this.linesArray.controls) {
       total += Number(ctrl.get('quantity')?.value ?? 0);
@@ -434,6 +443,7 @@ export class DistributionFormModalComponent implements OnInit {
   });
 
   readonly hasOverStock = computed(() => {
+    this.linesVersion();
     for (let i = 0; i < this.linesArray.length; i++) {
       if (this.isOverStock(i)) return true;
     }
@@ -441,6 +451,10 @@ export class DistributionFormModalComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.form.get('causeId')?.valueChanges.subscribe(v => {
+      this.selectedCauseId.set(Number(v ?? 0));
+    });
+
     forkJoin({
       causes:    this.causeApi.getAll(),
       items:     this.itemApi.getAll(),
@@ -459,10 +473,12 @@ export class DistributionFormModalComponent implements OnInit {
             distributedAt: this.distribution.distributedAtUtc.substring(0, 10),
             notes:         this.distribution.notes ?? ''
           });
+          this.selectedCauseId.set(this.distribution.causeId);
 
           for (const line of this.distribution.lines) {
             this.linesArray.push(this.makeLineGroup(line.itemId, line.quantity));
           }
+          this.syncLineState();
         } else {
           this.form.patchValue({ distributedAt: new Date().toISOString().substring(0, 10) });
           this.addLine();
@@ -489,9 +505,23 @@ export class DistributionFormModalComponent implements OnInit {
     });
   }
 
-  addLine(): void { this.linesArray.push(this.makeLineGroup()); }
-  removeLine(index: number): void { this.linesArray.removeAt(index); }
-  onQuantityChange(): void { /* signals recompute automatically */ }
+  addLine(): void {
+    this.linesArray.push(this.makeLineGroup());
+    this.syncLineState();
+  }
+
+  removeLine(index: number): void {
+    this.linesArray.removeAt(index);
+    this.syncLineState();
+  }
+
+  /** Bumps the version signal and refreshes the selectedItemIds signal. */
+  syncLineState(): void {
+    this.linesVersion.update(v => v + 1);
+    this.selectedItemIds.set(
+      this.linesArray.controls.map(c => Number(c.get('itemId')?.value ?? 0))
+    );
+  }
 
   availableStock(i: number): number | null {
     const itemId = Number(this.linesArray.at(i)?.get('itemId')?.value ?? 0);
