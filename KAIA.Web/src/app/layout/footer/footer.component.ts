@@ -12,7 +12,7 @@ import { Component } from '@angular/core';
           <span>For Causes That Matter</span>
         </div>
         <div class="footer__right">
-          <span>M1 · v0.1</span>
+          <span>M2 · v0.1</span>
           <span class="footer__dot">·</span>
           <span>ITS152P</span>
           <span class="footer__dot">·</span>

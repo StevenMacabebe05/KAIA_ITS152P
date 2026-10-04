@@ -350,10 +350,10 @@ interface LineDraft { itemId: number; quantity: number; }
     }
 
     @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes pop-in {
-      from { opacity: 0; transform: translateY(8px) scale(.98); }
-      to   { opacity: 1; transform: none; }
-    }
+@keyframes pop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 
     :host-context([data-theme="dark"]) {
       .line { background: var(--color-surface-3); }
