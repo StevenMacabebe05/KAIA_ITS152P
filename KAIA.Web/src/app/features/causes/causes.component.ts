@@ -30,7 +30,7 @@ export class CausesComponent implements OnInit {
 
   readonly searchQuery   = signal('');
   readonly statusFilter  = signal<StatusFilter>('');
-  readonly ngoFilter     = signal<number>(0);   // 0 = all NGOs
+  readonly ngoFilter     = signal<number>(0);
 
   readonly showFormModal   = signal(false);
   readonly editingCause    = signal<Cause | null>(null);
@@ -167,27 +167,54 @@ export class CausesComponent implements OnInit {
     });
   }
 
-  // ─── Helpers ───────────────────────────────────────────────────────
-  formatCurrency(v: number): string {
-    return '₱' + v.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // ─── Progress helpers (null-safe) ──────────────────────────────────
+  percentComplete(cause: Cause): number {
+    const goal   = Number(cause?.goalAmount);
+    const raised = Number(cause?.raisedAmount);
+    if (!Number.isFinite(goal) || goal <= 0) return 0;
+    if (!Number.isFinite(raised) || raised < 0) return 0;
+    return Math.min((raised / goal) * 100, 100);
   }
 
-  formatPesoCompact(v: number): string {
-    return '₱' + v.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  progressClass(pct: number): string {
+    if (pct >= 100) return 'progress--complete';
+    if (pct >= 60)  return 'progress--good';
+    if (pct >= 25)  return 'progress--mid';
+    return 'progress--low';
   }
 
-  formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('en-PH', {
+  // ─── Formatting helpers (null-safe) ────────────────────────────────
+  formatCurrency(v: number | null | undefined): string {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '₱0.00';
+    return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  formatPesoCompact(v: number | null | undefined): string {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '₱0';
+    return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+
+  formatDate(iso: string | null | undefined): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-PH', {
       year: 'numeric', month: 'short', day: 'numeric'
     });
   }
 
-  daysRemaining(deadline: string): number {
-    const diff = new Date(deadline).getTime() - Date.now();
+  daysRemaining(deadline: string | null | undefined): number {
+    if (!deadline) return 0;
+    const t = new Date(deadline).getTime();
+    if (isNaN(t)) return 0;
+    const diff = t - Date.now();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   }
 
-  deadlineLabel(deadline: string): string {
+  deadlineLabel(deadline: string | null | undefined): string {
+    if (!deadline) return 'No deadline';
     const days = this.daysRemaining(deadline);
     if (days < 0) return `${Math.abs(days)}d overdue`;
     if (days === 0) return 'Due today';
@@ -195,8 +222,8 @@ export class CausesComponent implements OnInit {
     return `${days} days left`;
   }
 
-  statusClass(status: CauseStatus): string {
-    return 'status-pill--' + status.toLowerCase();
+  statusClass(status: CauseStatus | null | undefined): string {
+    return 'status-pill--' + (status ?? 'Active').toLowerCase();
   }
 
   private showToast(type: 'success' | 'error', message: string): void {

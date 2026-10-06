@@ -17,6 +17,9 @@ import { SearchableSelectComponent, SearchableOption } from '../../shared/search
 
 interface LineDraft { itemId: number; quantity: number; }
 
+/** Monotonic counter for client-side line identity (never sent to the API). */
+let LINE_UID = 0;
+
 @Component({
   selector: 'app-donation-form-modal',
   standalone: true,
@@ -98,7 +101,7 @@ interface LineDraft { itemId: number; quantity: number; }
                 </div>
               } @else {
                 <div class="lines" formArrayName="lines">
-                  @for (line of linesArray.controls; track $index; let i = $index) {
+                  @for (line of linesArray.controls; track line.get('uid')?.value; let i = $index) {
                     <div class="line" [formGroupName]="i">
                       <div class="line__index">{{ i + 1 }}</div>
 
@@ -350,10 +353,10 @@ interface LineDraft { itemId: number; quantity: number; }
     }
 
     @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pop-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
+    @keyframes pop-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
 
     :host-context([data-theme="dark"]) {
       .line { background: var(--color-surface-3); }
@@ -476,8 +479,17 @@ export class DonationFormModalComponent implements OnInit {
     this.closed.emit();
   }
 
+  /**
+   * Build a line FormGroup.
+   *
+   * The `uid` control is a client-side-only identity for @for tracking.
+   * It is never sent to the server. Without this, using `track $index` or
+   * `track line.id` (both are unstable for editable arrays) makes Angular
+   * reuse DOM nodes and remove the wrong row.
+   */
   private makeLineGroup(itemId = 0, quantity = 1) {
     return this.fb.nonNullable.group({
+      uid:      ++LINE_UID,
       itemId:   [itemId,   [Validators.required, Validators.min(1)]],
       quantity: [quantity, [Validators.required, Validators.min(1)]]
     });

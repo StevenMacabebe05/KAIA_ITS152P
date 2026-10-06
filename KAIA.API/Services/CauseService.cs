@@ -30,9 +30,22 @@ public class CauseService : ICauseService
             query = query.Where(c => c.Status == parsed);
         }
 
+        // Projected inline so RaisedAmount is summed in SQL — one round-trip.
         return await query
             .OrderByDescending(c => c.CreatedAtUtc)
-            .Select(c => ToDto(c))
+            .Select(c => new CauseDto
+            {
+                Id = c.Id,
+                NgoId = c.NgoId,
+                NgoName = c.Ngo != null ? c.Ngo.Name : string.Empty,
+                Title = c.Title,
+                Description = c.Description,
+                GoalAmount = c.GoalAmount,
+                RaisedAmount = c.Donations.Sum(d => (decimal?)d.TotalValue) ?? 0m,
+                Deadline = c.Deadline,
+                Status = c.Status.ToString(),
+                CreatedAtUtc = c.CreatedAtUtc
+            })
             .ToListAsync(ct);
     }
 
@@ -43,7 +56,10 @@ public class CauseService : ICauseService
             .Include(c => c.Ngo)
             .FirstOrDefaultAsync(c => c.Id == id, ct);
 
-        return cause is null ? null : ToDto(cause);
+        if (cause is null) return null;
+
+        var raised = await GetRaisedAmountAsync(cause.Id, ct);
+        return ToDto(cause, raised);
     }
 
     public async Task<CauseDto> CreateAsync(CreateCauseDto dto, CancellationToken ct = default)
@@ -62,13 +78,14 @@ public class CauseService : ICauseService
         _db.Causes.Add(cause);
         await _db.SaveChangesAsync(ct);
 
-        // Re-query with Include so NgoName is populated in the response
+        // Re-query with Include so NgoName is populated in the response.
         var created = await _db.Causes
             .AsNoTracking()
             .Include(c => c.Ngo)
             .FirstAsync(c => c.Id == cause.Id, ct);
 
-        return ToDto(created);
+        // Fresh cause — no donations yet by definition.
+        return ToDto(created, 0m);
     }
 
     public async Task<CauseDto?> UpdateAsync(int id, UpdateCauseDto dto, CancellationToken ct = default)
@@ -89,17 +106,20 @@ public class CauseService : ICauseService
 
         await _db.SaveChangesAsync(ct);
 
-        // Re-load NGO in case NgoId changed
+        // Donations weren't touched — but a concurrent one may have landed.
+        var raised = await GetRaisedAmountAsync(cause.Id, ct);
+
+        // Re-load NGO in case NgoId changed.
         if (cause.Ngo is null || cause.Ngo.Id != cause.NgoId)
         {
             var reloaded = await _db.Causes
                 .AsNoTracking()
                 .Include(c => c.Ngo)
                 .FirstAsync(c => c.Id == cause.Id, ct);
-            return ToDto(reloaded);
+            return ToDto(reloaded, raised);
         }
 
-        return ToDto(cause);
+        return ToDto(cause, raised);
     }
 
     public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
@@ -123,7 +143,15 @@ public class CauseService : ICauseService
     }
 
     // ─── Helpers ───────────────────────────────────────────────────────
-    private static CauseDto ToDto(Cause c) => new()
+    private async Task<decimal> GetRaisedAmountAsync(int causeId, CancellationToken ct)
+    {
+        var sum = await _db.Donations
+            .Where(d => d.CauseId == causeId)
+            .SumAsync(d => (decimal?)d.TotalValue, ct);
+        return sum ?? 0m;
+    }
+
+    private static CauseDto ToDto(Cause c, decimal raisedAmount) => new()
     {
         Id = c.Id,
         NgoId = c.NgoId,
@@ -131,6 +159,7 @@ public class CauseService : ICauseService
         Title = c.Title,
         Description = c.Description,
         GoalAmount = c.GoalAmount,
+        RaisedAmount = raisedAmount,
         Deadline = c.Deadline,
         Status = c.Status.ToString(),
         CreatedAtUtc = c.CreatedAtUtc

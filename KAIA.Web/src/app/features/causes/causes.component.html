@@ -158,8 +158,8 @@
           <article class="cause-card">
 
             <div class="cause-card__head">
-              <div class="cause-card__ngo">{{ cause.ngoName }}</div>
-              <span class="status-pill" [class]="statusClass(cause.status)">
+              <div class="cause-card__ngo">{{ cause.ngoName || '—' }}</div>
+              <span class="status-pill" [ngClass]="statusClass(cause.status)">
                 <span class="status-pill__dot"></span>
                 {{ cause.status }}
               </span>
@@ -171,13 +171,24 @@
               <p class="cause-card__desc">{{ cause.description }}</p>
             }
 
+            <!-- ─── Progress block ─── -->
             <div class="cause-card__progress">
               <div class="cause-card__goal-row">
-                <span class="cause-card__goal-label">Goal</span>
-                <span class="cause-card__goal-value">{{ formatPesoCompact(cause.goalAmount) }}</span>
+                <span class="cause-card__goal-label">Raised</span>
+                <span class="cause-card__goal-value">
+                  {{ formatPesoCompact(cause.raisedAmount) }}
+                  <span class="cause-card__goal-of">of {{ formatPesoCompact(cause.goalAmount) }}</span>
+                </span>
               </div>
+
               <div class="cause-card__bar">
-                <div class="cause-card__bar-fill" style="width: 0%"></div>
+                <div class="cause-card__bar-fill"
+                     [ngClass]="progressClass(percentComplete(cause))"
+                     [style.width.%]="percentComplete(cause)"></div>
+              </div>
+
+              <div class="cause-card__pct">
+                {{ percentComplete(cause).toFixed(1) }}% funded
               </div>
             </div>
 

@@ -12,6 +12,13 @@ public record CauseDto
     public string Title { get; init; } = string.Empty;
     public string? Description { get; init; }
     public decimal GoalAmount { get; init; }
+
+    /// <summary>
+    /// Sum of donation TotalValue for this cause. Derived — never sent by the client.
+    /// Powers the progress bar on the Causes page.
+    /// </summary>
+    public decimal RaisedAmount { get; init; }
+
     public DateTime Deadline { get; init; }
     public string Status { get; init; } = "Active";
     public DateTime CreatedAtUtc { get; init; }

@@ -116,5 +116,4 @@ public class CausesController : ControllerBase
                 detail: ex.Message);
         }
     }
-
 }

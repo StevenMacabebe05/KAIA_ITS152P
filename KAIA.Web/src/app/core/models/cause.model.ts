@@ -1,3 +1,5 @@
+// core/models/cause.model.ts
+
 export type CauseStatus = 'Active' | 'Completed' | 'Cancelled';
 
 export interface Cause {
@@ -7,7 +9,8 @@ export interface Cause {
   title: string;
   description: string | null;
   goalAmount: number;
-  deadline: string;   // ISO date
+  raisedAmount: number;   // ← NEW: sum of donation TotalValue, sent by the API
+  deadline: string;       // ISO date
   status: CauseStatus;
   createdAtUtc: string;
 }

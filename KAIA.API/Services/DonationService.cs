@@ -84,6 +84,18 @@ public class DonationService : IDonationService
         _db.Donations.Add(donation);
         await _db.SaveChangesAsync(ct);
 
+        // ═══════════════════════════════════════════════════════════════
+        // IMPORTANT: The stock calculation in InventoryService sums up
+        // ALL DonationLines for an item. If the initial stock of 1 was
+        // NOT recorded as a DonationLine, it will be invisible here.
+        //
+        // Check your database seed: does the item have an existing
+        // DonationLine with Quantity = 1? If not, the "1" came from
+        // somewhere else and needs to be migrated into a DonationLine
+        // (or the InventoryService needs to account for an InitialStock
+        // field on the Item model).
+        // ═══════════════════════════════════════════════════════════════
+
         // Reload with all navigations populated for the response
         var created = await _db.Donations
             .AsNoTracking()

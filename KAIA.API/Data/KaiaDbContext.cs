@@ -96,8 +96,9 @@ public class KaiaDbContext : DbContext
                   .HasForeignKey(d => d.DonorId)
                   .OnDelete(DeleteBehavior.Restrict);
 
+            // ─── KEY CHANGE: pair with Cause.Donations so EF uses CauseId ───
             entity.HasOne(d => d.Cause)
-                  .WithMany()
+                  .WithMany(c => c.Donations)   // ← was .WithMany()
                   .HasForeignKey(d => d.CauseId)
                   .OnDelete(DeleteBehavior.Restrict);
 

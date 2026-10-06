@@ -22,4 +22,10 @@ public class Cause
     public CauseStatus Status { get; set; } = CauseStatus.Active;
 
     public DateTime CreatedAtUtc { get; set; }
+
+    /// <summary>
+    /// Donations received for this cause. Used to derive RaisedAmount
+    /// on the read model without a second round-trip.
+    /// </summary>
+    public ICollection<Donation> Donations { get; set; } = new List<Donation>();
 }
