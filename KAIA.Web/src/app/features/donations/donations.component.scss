@@ -227,7 +227,17 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
 }
+
+/* Column proportions. Item gets the most room; the numeric columns are
+   sized so their right-aligned values sit reasonably close to Item
+   without a huge empty gap. */
+.lines-table thead th:nth-child(1) { width: 38%; }  /* Item       */
+.lines-table thead th:nth-child(2) { width: 18%; }  /* Code       */
+.lines-table thead th:nth-child(3) { width: 16%; }  /* Unit price */
+.lines-table thead th:nth-child(4) { width: 10%; }  /* Quantity   */
+.lines-table thead th:nth-child(5) { width: 18%; }  /* Subtotal   */
 
 .lines-table thead th {
   text-align: left;
@@ -241,6 +251,15 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+/* ─── THE FIX ───
+   `.lines-table thead th` has higher specificity than a bare `.text-right`,
+   so right-aligned headers were being forced left. This rule restores the
+   right alignment on the headers that carry the `text-right` class, so
+   header text sits over the same edge as the right-aligned body values. */
+.lines-table thead th.text-right {
+  text-align: right;
+}
+
 .lines-table tbody td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--color-border);
@@ -248,6 +267,21 @@
 
 .lines-table tbody tr:last-child td { border-bottom: none; }
 .lines-table .text-right { text-align: right; }
+
+/* Edge alignment — first/last columns sit flush with the container edge
+   so they line up with the parent row's DONOR and action icons. */
+.lines-table thead th:first-child,
+.lines-table tbody td:first-child,
+.lines-table tfoot td:first-child {
+  padding-left: 0;
+}
+
+.lines-table thead th:last-child,
+.lines-table tbody td:last-child,
+.lines-table tfoot td:last-child {
+  padding-right: 0;
+}
+
 .cell-name { font-weight: 500; color: var(--color-text); }
 .cell-mono {
   font-family: 'SFMono-Regular', 'Consolas', monospace;
